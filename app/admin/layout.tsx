@@ -2,6 +2,7 @@ import type React from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import AdminClientLayout from "./AdminClientLayout";
+import { Home, Grid, BarChart2, User, Settings } from "lucide-react";
 import {
   IconArrowLeft,
   IconBrandTabler,
@@ -30,13 +31,14 @@ export default async function AdminLayout({
   if (!profile || profile.role !== "admin") {
     redirect("/student/dashboard");
   }
-  const links = [
-      { label: "Dashboard", href: "/admin/dashboard", icon: <IconBrandTabler className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" /> },
-      { label: "Exams", href: "/admin/exams", icon: <IconUserBolt className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" /> },
-      { label: "Test Series", href: "/admin/test-series", icon: <IconSettings className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" /> },
-      { label: "Question Bank", href: "/admin/question-bank", icon: <IconArrowLeft className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" /> },
-      { label: "Student", href: "/admin/students", icon: <IconArrowLeft className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" /> },
-    ];
+ const links = [
+    { icon: "home", label: "Dashboard", href: "/admin/dashboard" },
+    { icon: "question", label: "Question Bank", href: "/admin/question-bank" },
+    { icon: "grid", label: "Exam", href: "/admin/exams" },
+    { icon: "book", label: "Test Series", href: "/admin/test-series" },
+    { icon: "user", label: "Students" , href: "/admin/students" },
+    { icon: "settings", label: "Settings" ,href: "/admin/settings"},
+  ];
 
   return <AdminClientLayout profile={profile} links={links}>{children}</AdminClientLayout>;
 }

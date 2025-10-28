@@ -10,15 +10,10 @@ interface Props {
   userId: string
 }
 
+
 export default function AdminDashboardClient({ userId }: Props) {
   return (
-    <main className="flex-1 p-6 md:p-8 space-y-8 bg-slate-50 dark:bg-slate-950">
-      <div>
-        <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Welcome back! Here's your exam platform overview.
-        </p>
-      </div>
+    <main className="flex-1 p-6 md:p-8 space-y-8 bg-slate-50 dark:bg-slate-800/60">    
 
       <Suspense fallback={<div>Loading stats...</div>}>
         <StatsCards userId={userId} />

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { SidebarDemo } from "@/components/sidebar/SidebarDemo";
-import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { redirect } from "next/navigation";
+import Sidebar from "./components/layout/Sidebar";
+import Header from "./components/layout/Header";
+import MobileNav from "./components/layout/MobileNav";
 
 export default function AdminClientLayout({
   profile,
@@ -17,6 +17,49 @@ export default function AdminClientLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [theme, setTheme] = useState("light");
+
+ 
+
+  const chartData = [
+    { name: "Mon", users: 400, exams: 240 },
+    { name: "Tue", users: 300, exams: 139 },
+    { name: "Wed", users: 200, exams: 380 },
+    { name: "Thu", users: 278, exams: 390 },
+    { name: "Fri", users: 189, exams: 480 },
+    { name: "Sat", users: 239, exams: 380 },
+    { name: "Sun", users: 349, exams: 430 },
+  ];
+
+  useEffect(() => {
+    const saved = localStorage.getItem("m4c_theme");
+    const prefersDark =
+      window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initial = saved || (prefersDark ? "dark" : "light");
+    setTheme(initial);
+    applyTheme(initial);
+  }, []);
+
+  function applyTheme(t: string) {
+    const root = document.documentElement;
+    if (t === "dark") root.classList.add("dark");
+    else root.classList.remove("dark");
+  }
+
+  function toggleTheme() {
+    const next = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    localStorage.setItem("m4c_theme", next);
+    applyTheme(next);
+  }
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+  };
+
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -25,50 +68,21 @@ export default function AdminClientLayout({
   };
 
   return (
-    <div className="min-h-screen w-full flex text-[var(--foreground-color)] bg-[var(--background-color)]">
-      {/* Sidebar */}
-      <div
-        className={`fixed left-0 top-0 h-screen border-r border-[var(--sidebar-border)] z-50 transition-all duration-300 ${
-          open ? "w-[220px]" : "w-[72px]"
-        } bg-[var(--sidebar)] text-[var(--sidebar-foreground)]`}
-      >
-        <SidebarDemo open={open} setOpen={setOpen} links={links} profile={profile} />
-      </div>
+    <>
+    
+      <div className="min-h-screen flex bg-gradient-to-br from-white via-sky-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-black transition-colors duration-700 overflow-x-hidden">
+          <Sidebar menuItems={links} sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} />
+          <Header theme={theme} toggleTheme={toggleTheme} sidebarCollapsed={sidebarCollapsed} profile={profile}/>
+    
+          <main
+            className={`flex-1 p-4 md:p-8 mt-16 transition-all duration-500 ${sidebarCollapsed ? "md:ml-20" : "md:ml-64"
+              }`}
+          >{children}
+          </main>
+    
+          <MobileNav theme={theme} toggleTheme={toggleTheme} />
+        </div>
 
-      {/* Main content */}
-      <div
-        className={`flex flex-col flex-1 overflow-hidden transition-all duration-300 ${
-          open ? "ml-[220px]" : "ml-[72px]"
-        }`}
-      >
-        <header className="flex items-center justify-between border-b border-[var(--sidebar-border)] px-6 py-4 bg-[var(--background-color)] text-[var(--foreground-color)]">
-          <div className="flex flex-col">
-            <h1 className="text-xl font-bold text-blue-600">math4code</h1>
-            <p className="text-xs text-gray-400">Admin Panel</p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-400">
-              {profile.full_name || profile.email}
-            </span>
-            <form action={handleLogout}>
-              <Button
-                variant="ghost"
-                size="sm"
-                type="submit"
-                className="flex items-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </Button>
-            </form>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-6 bg-[var(--background-color)]">
-          {children}
-        </main>
-      </div>
-    </div>
+    </>
   );
 }

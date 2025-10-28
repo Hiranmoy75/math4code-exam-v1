@@ -2,8 +2,19 @@
 
 import { useEffect, useState } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { BookMarked, HelpCircle, Users, UserCheck } from "lucide-react"
+import { BookMarked, HelpCircle, Users, UserCheck, FolderPlus } from "lucide-react"
+import {
+  BookOpen,
+  Award,
+  Clock,
+  CheckCircle2,
+  TrendingUp,
+  Calendar,
+  Star,
+  PlayCircle,
+} from "lucide-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { motion } from "framer-motion";
 
 interface Props {
   userId: string
@@ -48,47 +59,91 @@ export default function StatsCards({ userId }: Props) {
     fetchStats()
   }, [userId, supabase])
 
+   const fadeIn = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.15, duration: 0.6 },
+    }),
+  };
+   const stats = [
+    {
+      title: "Total Exams created",
+      value: examsCount ?? "...",
+      icon: <CheckCircle2 className="w-6 h-6 text-green-500" />,
+      color: "from-green-50 to-emerald-100 dark:from-slate-800 dark:to-slate-900",
+    },
+    {
+      title: "Total Questions",
+      value: questionsCount ?? "...",
+      icon: <TrendingUp className="w-6 h-6 text-indigo-500" />,
+      color: "from-indigo-50 to-blue-100 dark:from-slate-800 dark:to-slate-900",
+    },
+    {
+      title: "Student Attempts",
+      value: attemptsCount ?? "...",
+      icon: <Clock className="w-6 h-6 text-yellow-500" />,
+      color: "from-yellow-50 to-amber-100 dark:from-slate-800 dark:to-slate-900",
+    },
+    {
+      title: "Unique Students",
+      value: uniqueStudents ?? "...",
+      icon: <Award className="w-6 h-6 text-purple-500" />,
+      color: "from-purple-50 to-pink-100 dark:from-slate-800 dark:to-slate-900",
+    },
+  ];
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <Card>
-        <CardHeader className="flex justify-between pb-2">
-          <CardTitle>Total Exams</CardTitle>
-          <BookMarked className="h-5 w-5 text-indigo-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-4xl font-bold">{examsCount ?? "..."}</div>
-        </CardContent>
-      </Card>
+    <>
+     
+      {/* Welcome Section */}
+      <motion.div
+        variants={fadeIn}
+        initial="hidden"
+        animate="visible"
+        custom={0}
+        className="rounded-3xl p-6 md:p-8 bg-white/60 dark:bg-slate-800/60 backdrop-blur-lg shadow-xl border border-slate-100 dark:border-slate-700 flex flex-col md:flex-row justify-between items-center"
+      >
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">
+            Welcome back, <span className="text-indigo-600 dark:text-indigo-400">Hiranmoy!</span>
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">
+            Keep up the great work! You’re progressing steadily towards your goals.
+          </p>
+        </div>
+       
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          className="mt-4 md:mt-0 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 cursor-pointer"
+        >
+          <FolderPlus className="w-5 h-5"/>
+          <span className="font-medium">Creat Exam</span>
+        </motion.div>
+      </motion.div>
 
-      <Card>
-        <CardHeader className="flex justify-between pb-2">
-          <CardTitle>Total Questions</CardTitle>
-          <HelpCircle className="h-5 w-5 text-indigo-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-4xl font-bold">{questionsCount ?? "..."}</div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex justify-between pb-2">
-          <CardTitle>Student Attempts</CardTitle>
-          <Users className="h-5 w-5 text-indigo-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-4xl font-bold">{attemptsCount ?? "..."}</div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex justify-between pb-2">
-          <CardTitle>Unique Students</CardTitle>
-          <UserCheck className="h-5 w-5 text-indigo-600" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-4xl font-bold">{uniqueStudents ?? "..."}</div>
-        </CardContent>
-      </Card>
-    </div>
+      {/* Statistics Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {stats.map((stat, i) => (
+          <motion.div
+            key={i}
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+            custom={i + 1}
+            whileHover={{ scale: 1.03 }}
+            className={`p-5 rounded-2xl bg-gradient-to-br ${stat.color} shadow-lg border border-slate-100 dark:border-slate-700 flex items-center justify-between`}
+          >
+            <div>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{stat.title}</p>
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-white">{stat.value}</h3>
+            </div>
+            {stat.icon}
+          </motion.div>
+        ))}
+      </div>
+     
+</>
   )
 }

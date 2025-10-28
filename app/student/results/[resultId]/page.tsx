@@ -14,7 +14,7 @@ export default async function ResultDetailPage({ params }: { params: { resultId:
     .eq("id", params.resultId)
     .single()
 
-  if (!result) return <div>Result not found</div>
+  if (!result) return <div className="text-center text-gray-500 py-20">Result not found</div>
 
   const { data: sectionResults } = await supabase
     .from("section_results")
@@ -28,14 +28,39 @@ export default async function ResultDetailPage({ params }: { params: { resultId:
   }))
 
   const pieData = [
-    { name: "Correct", value: sectionResults?.reduce((sum: number, sr: any) => sum + sr.correct_answers, 0) || 0 },
-    { name: "Wrong", value: sectionResults?.reduce((sum: number, sr: any) => sum + sr.wrong_answers, 0) || 0 },
-    { name: "Unanswered", value: sectionResults?.reduce((sum: number, sr: any) => sum + sr.unanswered, 0) || 0 },
+    {
+      name: "Correct",
+      value:
+        sectionResults?.reduce(
+          (sum: number, sr: any) => sum + sr.correct_answers,
+          0
+        ) || 0,
+      fill: "#22c55e",
+    },
+    {
+      name: "Wrong",
+      value:
+        sectionResults?.reduce(
+          (sum: number, sr: any) => sum + sr.wrong_answers,
+          0
+        ) || 0,
+      fill: "#ef4444",
+    },
+    {
+      name: "Unanswered",
+      value:
+        sectionResults?.reduce(
+          (sum: number, sr: any) => sum + sr.unanswered,
+          0
+        ) || 0,
+      fill: "#94a3b8",
+    },
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-black rounded-3xl p-6 md:p-10 shadow-lg">
       <ResultHeader title={result.exam_attempts.exams.title} />
+
       <ScoreSummary
         totalScore={result.obtained_marks}
         totalMarks={result.total_marks}
@@ -43,7 +68,7 @@ export default async function ResultDetailPage({ params }: { params: { resultId:
         rank={result.rank}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <SectionBarChart data={chartData} />
         <AnswerPieChart data={pieData} />
       </div>

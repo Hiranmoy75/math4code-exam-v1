@@ -34,7 +34,9 @@ export default function ExamCharts({ userId }: Props) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
+      <Card className="group relative overflow-hidden rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 shadow-md backdrop-blur-md transition-all duration-500 hover:-translate-y-1 hover:shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-indigo-400/5 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
         <CardHeader>
           <CardTitle>Exam Attempts</CardTitle>
           <CardDescription>Weekly submissions</CardDescription>
@@ -52,7 +54,9 @@ export default function ExamCharts({ userId }: Props) {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="group relative overflow-hidden rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 shadow-md backdrop-blur-md transition-all duration-500 hover:-translate-y-1 hover:shadow-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-indigo-400/5 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
         <CardHeader>
           <CardTitle>Performance Trend</CardTitle>
           <CardDescription>Average scores</CardDescription>

@@ -12,7 +12,7 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar"
-import { BookOpen, BarChart3, LogOut } from "lucide-react"
+import { BookOpen, BarChart3, LogOut, Home, Grid } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { IconBrandTabler, IconUserBolt } from "@tabler/icons-react"
@@ -44,9 +44,13 @@ export default async function StudentLayout({
     await supabase.auth.signOut()
     redirect("/auth/login")
   }
- const links = [
-      { label: "Dashboard", href: "/student/dashboard", icon: <IconBrandTabler className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" /> },
-      { label: "Result", href: "/student/results", icon: <IconUserBolt className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" /> },
-       ];
+
+   const links = [
+    { icon: "home", label: "Dashboard", href: "/student/dashboard" },
+    { icon: "book", label: "My Series", href: "/student/my-series"},    
+    { icon: "book", label: "Result", href: "/student/results"},    
+    { icon: "book", label: "All Series", href: "/student/all-test-series"},    
+  ];
+
 return <AdminClientLayout profile={profile} links={links}>{children}</AdminClientLayout>;
 }
