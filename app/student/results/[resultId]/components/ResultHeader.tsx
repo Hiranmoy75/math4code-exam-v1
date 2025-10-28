@@ -5,7 +5,7 @@ import { ArrowLeft, Eye } from "lucide-react"
 
 export function ResultHeader({ title }: { title: string }) {
   return (
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-50 via-white to-sky-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 p-6 md:p-8 rounded-3xl shadow-md border border-slate-100 dark:border-slate-700 transition-all">
+    <div className="flex flex-col md:flex-row items-start md:items-center overflow-hidden justify-between gap-4 bg-gradient-to-r from-indigo-50 via-white to-sky-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 p-6 md:p-8 rounded-3xl shadow-md border border-slate-100 dark:border-slate-700 transition-all">
       
       {/* Left side: Title & Subtitle */}
       <div className="flex flex-col">

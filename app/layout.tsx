@@ -41,7 +41,7 @@ export default function RootLayout({
         <meta charSet="utf-8" />
         <meta name="theme-color" content="#ffffff" />
       </head>
-      <body className={`font-sans antialiased`}>
+      <body className={`font-sans antialiased `}>
         {children}
         <Analytics />
       </body>

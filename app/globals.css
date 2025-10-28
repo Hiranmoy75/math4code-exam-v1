@@ -120,3 +120,8 @@
     @apply bg-background text-foreground;
   }
 }
+html, body {
+  width: 100%;        /* 🚀 নিশ্চিত করবে viewport cross না করে */
+  max-width: 100%;
+  overflow-x: hidden; /* page আর কেটে যাবে না */
+}
