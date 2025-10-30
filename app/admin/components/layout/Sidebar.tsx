@@ -17,6 +17,8 @@ import { useState, useEffect } from "react";
 
 interface SidebarProps {
   menuItems: { icon: keyof typeof iconMap; label: string; href: string }[];
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (v: boolean) => void;
 }
 
 const iconMap = {
@@ -29,8 +31,11 @@ const iconMap = {
   question: BookCheck,
 };
 
-export default function Sidebar({ menuItems }: SidebarProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+export default function Sidebar({
+  menuItems,
+  sidebarCollapsed,
+  setSidebarCollapsed,
+}: SidebarProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showControlMenu, setShowControlMenu] = useState(false);
   const [expandMode, setExpandMode] = useState<"expanded" | "collapsed" | "hover">("expanded");
