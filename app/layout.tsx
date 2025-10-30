@@ -3,6 +3,8 @@ import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
+import { ReactQueryProviders } from "@/lib/provider/Provider"
+import { MathJaxContext } from "better-react-mathjax"
 
 const _geist = Geist({
   subsets: ["latin"],
@@ -30,6 +32,14 @@ export const metadata: Metadata = {
   },
 }
 
+const config = {
+  loader: { load: ["input/tex", "output/chtml"] },
+  tex: {
+    inlineMath: [["$", "$"], ["\\(", "\\)"]],
+    displayMath: [["$$", "$$"], ["\\[", "\\]"]],
+  },
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -42,7 +52,12 @@ export default function RootLayout({
         <meta name="theme-color" content="#ffffff" />
       </head>
       <body className={`font-sans antialiased `}>
-        {children}
+        <ReactQueryProviders>
+          <MathJaxContext version={3} config={config}>
+            {children}
+          </MathJaxContext>
+          
+           </ReactQueryProviders>
         <Analytics />
       </body>
     </html>

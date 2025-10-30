@@ -19,12 +19,15 @@ export default function Header({
   theme,
   toggleTheme,
   sidebarCollapsed,
-  profile
+  profile,
+  setSidebarCollapsed
 }: {
   theme: string;
   toggleTheme: () => void;
   sidebarCollapsed: boolean;
-  profile:any
+  profile:any;
+  setSidebarCollapsed:any;
+
 }) {
   const [openProfile, setOpenProfile] = useState(false);
   const [openNotif, setOpenNotif] = useState(false);
@@ -90,9 +93,12 @@ export default function Header({
     <>
       {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 flex items-center justify-between p-4 bg-white/90 dark:bg-slate-900/70 backdrop-blur-lg shadow-md z-30">
-        <button className="p-2 bg-indigo-600 text-white rounded-md">
-          <Menu className="w-5 h-5" />
-        </button>
+        <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)} // toggle sidebar
+        className="p-2 bg-indigo-600 text-white rounded-md"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
         <h1 className="text-lg font-bold text-slate-800 dark:text-white">
           Dashboard
         </h1>

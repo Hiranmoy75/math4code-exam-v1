@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Star,
@@ -11,13 +11,14 @@ import {
   Search,
 } from 'lucide-react'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 type TestSeries = {
-  id: number
+  id: string
   title: string
+  description: string
   examType: string
   subject: string
-  description: string
   tests: number
   price: number
   discount?: number
@@ -27,104 +28,86 @@ type TestSeries = {
   level?: string
 }
 
-const DUMMY_SERIES: TestSeries[] = [
-  {
-    id: 1,
-    title: 'JEE Advanced 2025 Mega Series',
-    examType: 'JEE',
-    subject: 'Physics • Chemistry • Maths',
-    description:
-      '12 full-length mocks with detailed solutions and analytics dashboard.',
-    tests: 12,
-    price: 1499,
-    discount: 20,
-    rating: 4.8,
-    badge: 'Top Rated',
-    freeTests: 2,
-    level: 'Advanced',
-  },
-  {
-    id: 2,
-    title: 'IIT JAM Mathematics Series',
-    examType: 'JAM',
-    subject: 'Mathematics',
-    description:
-      '10 mock tests covering full IIT JAM syllabus with leaderboard & reports.',
-    tests: 10,
-    price: 999,
-    rating: 4.7,
-    badge: 'Popular',
-    freeTests: 1,
-    level: 'Graduate',
-  },
-  {
-    id: 3,
-    title: 'GATE Computer Science Pro Pack',
-    examType: 'GATE',
-    subject: 'CSE / IT',
-    description:
-      '8 premium tests, sectional analysis and personalized score reports.',
-    tests: 8,
-    price: 1299,
-    discount: 15,
-    rating: 4.9,
-    badge: 'New',
-    freeTests: 1,
-    level: 'Expert',
-  },
-  {
-    id: 4,
-    title: 'CSIR NET Physical Science Test Series',
-    examType: 'CSIR NET',
-    subject: 'Physics',
-    description:
-      'Conceptual & numerical questions for CSIR NET Physical Science.',
-    tests: 10,
-    price: 1199,
-    rating: 4.6,
-    badge: 'Advanced',
-    freeTests: 1,
-    level: 'Postgraduate',
-  },
-  {
-    id: 5,
-    title: 'SSC CGL Quantitative Aptitude Series',
-    examType: 'SSC CGL',
-    subject: 'Mathematics',
-    description:
-      'Chapter-wise + full mock tests for Tier-1 preparation with solutions.',
-    tests: 20,
-    price: 799,
-    rating: 4.6,
-    badge: 'Value Pack',
-    freeTests: 2,
-    level: 'Intermediate',
-  },
-]
-
 export default function AllTestSeriesPage() {
+  const supabase = createClient()
+  const [seriesData, setSeriesData] = useState<TestSeries[]>([])
   const [selectedExam, setSelectedExam] = useState<string>('All')
   const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchSeries() {
+      setLoading(true)
+
+      // ✅ fetch test_series with exams count
+      const { data, error } = await supabase
+        .from('test_series')
+        .select(`
+          id,
+          title,
+          description,
+          price,
+          is_free,
+          total_exams,
+          status,
+          created_at,
+          test_series_exams(count)
+        `)
+
+      if (error) {
+        console.error('Error fetching series:', error)
+        setSeriesData([])
+        setLoading(false)
+        return
+      }
+
+      const formatted: TestSeries[] =
+        data?.map((s: any) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description || 'No description',
+          examType: 'Mixed', // তুমি চাইলে আলাদা column add করতে পারো
+          subject: 'All Subjects',
+          tests: s.total_exams || s.test_series_exams?.[0]?.count || 0,
+          price: s.price,
+          discount: s.price > 1000 ? 20 : undefined,
+          rating: Math.random() * (5 - 4.5) + 4.5, // Demo rating (db তে rating field রাখলে এটাও আনতে পারো)
+          badge: s.status === 'published' ? 'Popular' : undefined,
+          freeTests: s.is_free ? 1 : 0,
+          level: 'All Levels',
+        })) || []
+
+      setSeriesData(formatted)
+      setLoading(false)
+    }
+
+    fetchSeries()
+  }, [supabase])
 
   const filteredSeries = useMemo(() => {
-    return DUMMY_SERIES.filter((series) => {
-      const matchesExam =
-        selectedExam === 'All' || series.examType === selectedExam
+    return seriesData.filter((series) => {
+      const matchesExam = selectedExam === 'All' || series.examType === selectedExam
       const matchesSearch =
         series.title.toLowerCase().includes(search.toLowerCase()) ||
         series.subject.toLowerCase().includes(search.toLowerCase())
       return matchesExam && matchesSearch
     })
-  }, [selectedExam, search])
+  }, [seriesData, selectedExam, search])
 
   const exams = ['All', 'JEE', 'JAM', 'GATE', 'CSIR NET', 'SSC CGL']
+  const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
 
   function handleViewDetails(series: TestSeries) {
-    redirect('/student/all-test-series/1')
-    // router.push(`/test-series/${series.id}`)
+    redirect(`/student/all-test-series/${series.id}`)
   }
 
-  const money = (n: number) => `₹${n.toLocaleString('en-IN')}`
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen text-slate-500">
+        Loading test series...
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen p-6 md:p-10 bg-gradient-to-br from-white via-sky-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-black transition">
@@ -232,7 +215,7 @@ export default function AllTestSeriesPage() {
                     Tests
                   </div>
                   <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Star className="w-4 h-4 text-amber-500" /> {series.rating}
+                    <Star className="w-4 h-4 text-amber-500" /> {series.rating.toFixed(1)}
                   </div>
                 </div>
 

@@ -1,384 +1,275 @@
 "use client"
 
-import { useState } from "react"
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { motion } from "framer-motion"
 import { Plus, Trash2 } from "lucide-react"
 
-interface Option {
-  option_text: string
-  option_order: number
-  is_correct: boolean
+type OptionRow = { id?: string; option_text: string; is_correct: boolean; option_order: number }
+
+type Props = {
+  questionId?: string
+  onSuccess?: () => void
 }
 
-interface FormData {
-  title: string
-  question_text: string
-  question_type: string
-  marks: string
-  negative_marks: string
-  correct_answer: string
-  explanation: string
-  subject: string
-  topic: string
-  difficulty: string
-}
-
-export default function QuestionForm({ onSuccess }: { onSuccess: () => void }) {
-  const [formData, setFormData] = useState<FormData>({
+export default forwardRef(function QuestionForm({ questionId, onSuccess }: Props, ref) {
+  const supabase = createClient()
+  const [saving, setSaving] = useState(false)
+  const [options, setOptions] = useState<OptionRow[]>([
+    { option_text: "", is_correct: false, option_order: 1 },
+    { option_text: "", is_correct: false, option_order: 2 },
+  ])
+  const [form, setForm] = useState({
     title: "",
     question_text: "",
-    question_type: "MCQ",
-    marks: "1",
-    negative_marks: "0",
+    question_type: "MCQ" as "MCQ" | "MSQ" | "NAT",
+    marks: 1,
+    negative_marks: 0,
     correct_answer: "",
     explanation: "",
-    subject: "",
+    subject: "math",
     topic: "",
-    difficulty: "medium",
+    difficulty: "easy" as "easy" | "medium" | "hard",
   })
 
-  const [options, setOptions] = useState<Option[]>([
-    { option_text: "", option_order: 1, is_correct: false },
-  ])
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  useImperativeHandle(ref, () => ({
+    submit: async () => handleSubmit(),
+  }))
 
-  const handleOptionChange = (index: number, field: string, value: string | boolean) => {
-    const newOptions = [...options]
-    if (field === "option_text") {
-      newOptions[index].option_text = value as string
-    } else if (field === "is_correct") {
-      if (formData.question_type === "MCQ") {
-        newOptions.forEach((opt, i) => {
-          opt.is_correct = i === index
+  // Load for edit
+  useEffect(() => {
+    if (!questionId) return
+    ;(async () => {
+      const { data, error } = await supabase.from("question_bank").select("*").eq("id", questionId).single()
+      if (!error && data) {
+        setForm({
+          title: data.title,
+          question_text: data.question_text,
+          question_type: data.question_type,
+          marks: data.marks,
+          negative_marks: data.negative_marks ?? 0,
+          correct_answer: data.correct_answer ?? "",
+          explanation: data.explanation ?? "",
+          subject: data.subject ?? "math",
+          topic: data.topic ?? "",
+          difficulty: data.difficulty ?? "easy",
         })
-      } else if (formData.question_type === "MSQ") {
-        newOptions[index].is_correct = value as boolean
-      }
-    }
-    setOptions(newOptions)
-  }
-
-  const addOption = () => {
-    setOptions([
-      ...options,
-      { option_text: "", option_order: options.length + 1, is_correct: false },
-    ])
-  }
-
-  const removeOption = (index: number) => {
-    if (options.length > 1) {
-      const newOptions = options.filter((_, i) => i !== index)
-      setOptions(newOptions.map((opt, i) => ({ ...opt, option_order: i + 1 })))
-    }
-  }
-
-  const handleAddQuestion = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    try {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) throw new Error("Not authenticated")
-
-      if (
-        (formData.question_type === "MCQ" || formData.question_type === "MSQ") &&
-        !options.some((opt) => opt.is_correct)
-      ) {
-        throw new Error("Please mark at least one option as correct")
-      }
-
-      const { data: questionData, error: insertError } = await supabase
-        .from("question_bank")
-        .insert({
-          admin_id: user.id,
-          ...formData,
-          marks: Number(formData.marks),
-          negative_marks: Number(formData.negative_marks),
-          correct_answer:
-            formData.question_type === "NAT" ? formData.correct_answer : null,
-        })
-        .select()
-
-      if (insertError) throw insertError
-      if (!questionData?.[0]) throw new Error("Failed to create question")
-
-      const questionId = questionData[0].id
-
-      if (
-        (formData.question_type === "MCQ" || formData.question_type === "MSQ") &&
-        options.length > 0
-      ) {
-        const optionsToInsert = options.map((opt) => ({
-          question_id: questionId,
-          option_text: opt.option_text,
-          option_order: opt.option_order,
-          is_correct: opt.is_correct,
-        }))
-
-        const { error: optionsError } = await supabase
+        const { data: opt } = await supabase
           .from("question_bank_options")
-          .insert(optionsToInsert)
-        if (optionsError) throw optionsError
+          .select("*")
+          .eq("question_id", questionId)
+          .order("option_order", { ascending: true })
+
+        setOptions(
+          (opt ?? []).map((o: any) => ({
+            id: o.id,
+            option_text: o.option_text,
+            is_correct: o.is_correct,
+            option_order: o.option_order,
+          }))
+        )
       }
+    })()
+  }, [questionId, supabase])
 
-      // ✅ Reset form
-      setFormData({
-        title: "",
-        question_text: "",
-        question_type: "MCQ",
-        marks: "1",
-        negative_marks: "0",
-        correct_answer: "",
-        explanation: "",
-        subject: "",
-        topic: "",
-        difficulty: "medium",
-      })
-      setOptions([{ option_text: "", option_order: 1, is_correct: false }])
+  function addOption() {
+    setOptions((prev) => [...prev, { option_text: "", is_correct: false, option_order: prev.length + 1 }])
+  }
+  function removeOption(idx: number) {
+    setOptions((prev) => prev.filter((_, i) => i !== idx).map((o, i) => ({ ...o, option_order: i + 1 })))
+  }
 
-      onSuccess()
-    } catch (err: any) {
-      setError(err.message || "Failed to add question")
+  async function handleSubmit() {
+    setSaving(true)
+    try {
+      // who is admin?
+      const { data: userData } = await supabase.auth.getUser()
+      const admin_id = userData?.user?.id
+      if (!admin_id) throw new Error("Not authenticated")
+
+      if (questionId) {
+        // update question
+        const { error: qErr } = await supabase
+          .from("question_bank")
+          .update({ ...form, updated_at: new Date().toISOString() })
+          .eq("id", questionId)
+        if (qErr) throw qErr
+
+        // upsert options
+        if (form.question_type !== "NAT") {
+          // delete removed ones
+          const existingIds = options.filter((o) => o.id).map((o) => o.id)
+          // remove those not in existingIds:
+          // (simple approach: delete all and insert fresh)
+          await supabase.from("question_bank_options").delete().eq("question_id", questionId)
+          await supabase.from("question_bank_options").insert(
+            options.map((o) => ({
+              question_id: questionId,
+              option_text: o.option_text,
+              option_order: o.option_order,
+              is_correct: o.is_correct,
+            }))
+          )
+        } else {
+          await supabase.from("question_bank_options").delete().eq("question_id", questionId)
+        }
+      } else {
+        // create question
+        const { data: newQ, error: cErr } = await supabase
+          .from("question_bank")
+          .insert([{ ...form, admin_id }])
+          .select("id")
+          .single()
+        if (cErr) throw cErr
+
+        if (form.question_type !== "NAT") {
+          const payload = options.map((o) => ({
+            question_id: newQ.id,
+            option_text: o.option_text,
+            option_order: o.option_order,
+            is_correct: o.is_correct,
+          }))
+          if (payload.length) await supabase.from("question_bank_options").insert(payload)
+        }
+      }
+      onSuccess?.()
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
+
+  const isChoice = form.question_type === "MCQ" || form.question_type === "MSQ"
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Add New Question</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleAddQuestion} className="space-y-4">
-          <div className="grid gap-2">
-            <Label htmlFor="title">Question Title</Label>
-            <Input
-              id="title"
-              placeholder="e.g., Quadratic Equations - Problem 1"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              required
-            />
+    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <Card className="rounded-2xl">
+        <CardContent className="grid gap-4 p-4">
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Title</label>
+              <Input value={form.title} onChange={(e) => setForm((s) => ({ ...s, title: e.target.value }))} />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Subject</label>
+              <Input value={form.subject} onChange={(e) => setForm((s) => ({ ...s, subject: e.target.value }))} />
+            </div>
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="question">Question Text</Label>
+            <label className="text-sm font-medium">Question</label>
             <Textarea
-              id="question"
-              placeholder="Enter the question (supports LaTeX)"
-              value={formData.question_text}
-              onChange={(e) => setFormData({ ...formData, question_text: e.target.value })}
-              rows={4}
-              required
+              value={form.question_text}
+              onChange={(e) => setForm((s) => ({ ...s, question_text: e.target.value }))}
+              placeholder="Enter question text"
             />
           </div>
 
-          {/* Type & Marks */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid md:grid-cols-4 gap-3">
             <div className="grid gap-2">
-              <Label htmlFor="type">Question Type</Label>
-              <select
-                id="type"
-                value={formData.question_type}
-                onChange={(e) => {
-                  const type = e.target.value
-                  setFormData({ ...formData, question_type: type })
-                  if (type === "NAT") {
-                    setOptions([])
-                  } else {
-                    setOptions([{ option_text: "", option_order: 1, is_correct: false }])
-                  }
-                }}
-                className="border rounded px-3 py-2"
-              >
-                <option value="MCQ">MCQ (Single Answer)</option>
-                <option value="MSQ">MSQ (Multiple Answers)</option>
-                <option value="NAT">NAT (Numerical Answer)</option>
-              </select>
+              <label className="text-sm font-medium">Type</label>
+              <Select value={form.question_type} onValueChange={(v: any) => setForm((s) => ({ ...s, question_type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MCQ">MCQ</SelectItem>
+                  <SelectItem value="MSQ">MSQ</SelectItem>
+                  <SelectItem value="NAT">NAT</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="marks">Marks</Label>
-              <Input
-                id="marks"
-                type="number"
-                value={formData.marks}
-                onChange={(e) => setFormData({ ...formData, marks: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Negative Marks & Difficulty */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="negative">Negative Marks</Label>
-              <Input
-                id="negative"
-                type="number"
-                step="0.25"
-                value={formData.negative_marks}
-                onChange={(e) =>
-                  setFormData({ ...formData, negative_marks: e.target.value })
-                }
-              />
+              <label className="text-sm font-medium">Difficulty</label>
+              <Select value={form.difficulty} onValueChange={(v: any) => setForm((s) => ({ ...s, difficulty: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="difficulty">Difficulty</Label>
-              <select
-                id="difficulty"
-                value={formData.difficulty}
-                onChange={(e) =>
-                  setFormData({ ...formData, difficulty: e.target.value })
-                }
-                className="border rounded px-3 py-2"
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
+              <label className="text-sm font-medium">Marks</label>
+              <Input type="number" value={form.marks} onChange={(e) => setForm((s) => ({ ...s, marks: Number(e.target.value || 0) }))} />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Negative Marks</label>
+              <Input type="number" step="0.25" value={form.negative_marks}
+                onChange={(e) => setForm((s) => ({ ...s, negative_marks: Number(e.target.value || 0) }))} />
             </div>
           </div>
 
-          {/* Subject & Topic */}
-          <div className="grid grid-cols-2 gap-4">
+          {isChoice ? (
             <div className="grid gap-2">
-              <Label htmlFor="subject">Subject</Label>
-              <Input
-                id="subject"
-                placeholder="e.g., Mathematics"
-                value={formData.subject}
-                onChange={(e) =>
-                  setFormData({ ...formData, subject: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="topic">Topic</Label>
-              <Input
-                id="topic"
-                placeholder="e.g., Algebra"
-                value={formData.topic}
-                onChange={(e) =>
-                  setFormData({ ...formData, topic: e.target.value })
-                }
-              />
-            </div>
-          </div>
-
-          {/* Options (for MCQ/MSQ) */}
-          {(formData.question_type === "MCQ" ||
-            formData.question_type === "MSQ") && (
-            <div className="space-y-3 border-t pt-4">
-              <div className="flex justify-between items-center">
-                <Label>Options</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addOption}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add Option
+              <label className="text-sm font-medium">Options ({form.question_type === "MCQ" ? "single correct" : "multiple correct"})</label>
+              <div className="space-y-2">
+                {options.map((opt, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <Input
+                      className="flex-1"
+                      value={opt.option_text}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setOptions((prev) => prev.map((o, i) => (i === idx ? { ...o, option_text: v } : o)))
+                      }}
+                      placeholder={`Option ${idx + 1}`}
+                    />
+                    <label className="text-sm flex items-center gap-1 px-2">
+                      <input
+                        type={form.question_type === "MCQ" ? "radio" : "checkbox"}
+                        name="correct"
+                        checked={opt.is_correct}
+                        onChange={(e) => {
+                          setOptions((prev) =>
+                            prev.map((o, i) =>
+                              i === idx
+                                ? { ...o, is_correct: e.target.checked }
+                                : form.question_type === "MCQ"
+                                ? { ...o, is_correct: false }
+                                : o
+                            )
+                          )
+                        }}
+                      />
+                      Correct
+                    </label>
+                    <Button type="button" variant="outline" onClick={() => removeOption(idx)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" onClick={addOption}>
+                  <Plus className="h-4 w-4 mr-1" /> Add option
                 </Button>
               </div>
-              {options.map((option, index) => (
-                <div key={index} className="flex gap-2 items-end">
-                  <div className="flex-1 grid gap-2">
-                    <Input
-                      placeholder={`Option ${index + 1}`}
-                      value={option.option_text}
-                      onChange={(e) =>
-                        handleOptionChange(index, "option_text", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {formData.question_type === "MCQ" ? (
-                      <input
-                        type="radio"
-                        name="correct_answer"
-                        checked={option.is_correct}
-                        onChange={() =>
-                          handleOptionChange(index, "is_correct", true)
-                        }
-                        className="w-4 h-4"
-                      />
-                    ) : (
-                      <input
-                        type="checkbox"
-                        checked={option.is_correct}
-                        onChange={(e) =>
-                          handleOptionChange(index, "is_correct", e.target.checked)
-                        }
-                        className="w-4 h-4"
-                      />
-                    )}
-                    <Label className="text-sm">Correct</Label>
-                  </div>
-                  {options.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => removeOption(index)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Correct Answer (NAT)</label>
+              <Input value={form.correct_answer} onChange={(e) => setForm((s) => ({ ...s, correct_answer: e.target.value }))} />
             </div>
           )}
 
-          {/* NAT Answer */}
-          {formData.question_type === "NAT" && (
-            <div className="grid gap-2 border-t pt-4">
-              <Label htmlFor="nat_answer">Correct Answer</Label>
-              <Input
-                id="nat_answer"
-                placeholder="Enter the numerical answer"
-                value={formData.correct_answer}
-                onChange={(e) =>
-                  setFormData({ ...formData, correct_answer: e.target.value })
-                }
-                required
-              />
-            </div>
-          )}
-
-          {/* Explanation */}
           <div className="grid gap-2">
-            <Label htmlFor="explanation">Explanation (Optional)</Label>
+            <label className="text-sm font-medium">Explanation</label>
             <Textarea
-              id="explanation"
-              placeholder="Provide explanation for the answer (supports LaTeX)"
-              value={formData.explanation}
-              onChange={(e) =>
-                setFormData({ ...formData, explanation: e.target.value })
-              }
-              rows={3}
+              value={form.explanation}
+              onChange={(e) => setForm((s) => ({ ...s, explanation: e.target.value }))}
+              placeholder="Explain the solution / reasoning"
             />
           </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Saving..." : "Add Question"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+          <div className="flex justify-end">
+            <Button onClick={handleSubmit} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+              {saving ? "Saving…" : questionId ? "Update" : "Create"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </motion.div>
   )
-}
+})

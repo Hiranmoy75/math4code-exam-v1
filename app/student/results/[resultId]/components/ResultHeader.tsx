@@ -3,7 +3,12 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Eye } from "lucide-react"
 
-export function ResultHeader({ title }: { title: string }) {
+type ResultHeaderProps = {
+  title: string
+  attemptId?: string
+}
+
+export function ResultHeader({ title, attemptId }: ResultHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center overflow-hidden justify-between gap-4 bg-gradient-to-r from-indigo-50 via-white to-sky-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 p-6 md:p-8 rounded-3xl shadow-md border border-slate-100 dark:border-slate-700 transition-all">
       
@@ -20,7 +25,7 @@ export function ResultHeader({ title }: { title: string }) {
       {/* Right side: Buttons */}
       <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
         {/* More View Button */}
-        <Link href="/student/performance">
+        <Link href={`/student/results/attempt/${attemptId}`}>
           <Button
             variant="outline"
             className="flex items-center gap-2 border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:shadow-md transition-all"

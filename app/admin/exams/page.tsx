@@ -3,6 +3,7 @@ import ExamsTable from "./components/ExamsTable"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import ExamsTableSkeleton from "./components/ExamsTableSkeleton"
+import ImportExam from "./ImportExam"
 
 export default function ExamsPage() {
   return (
@@ -16,7 +17,10 @@ export default function ExamsPage() {
           <Button>Create Exam</Button>
         </Link>
       </div>
-
+  <div className="space-y-4">
+      { <ImportExam/>}
+      {/* list of exams here */}
+    </div>
       <Suspense fallback={<ExamsTableSkeleton />}>
         {/* Suspense for better performance */}
         <ExamsTable />

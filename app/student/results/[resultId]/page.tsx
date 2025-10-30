@@ -5,9 +5,13 @@ import { SectionBarChart } from "./components/SectionBarChart"
 import { AnswerPieChart } from "./components/AnswerPieChart"
 import { SectionTable } from "./components/SectionTable"
 
-export default async function ResultDetailPage({ params }: { params: { resultId: string } }) {
+export default async function ResultDetailPage({ params , searchParams  }: { params: { resultId: string },searchParams: { attemptId?: string } }) {
   const supabase = await createClient()
   const { resultId } = await params; 
+   const attemptId = searchParams.attemptId
+
+  console.log("Result ID:", resultId)
+  console.log("Attempt ID:", attemptId)
 
   const { data: result } = await supabase
     .from("results")
@@ -54,7 +58,7 @@ export default async function ResultDetailPage({ params }: { params: { resultId:
       dark:from-slate-900 dark:via-slate-950 dark:to-black 
       rounded-2xl md:rounded-3xl shadow-lg overflow-x-hidden">
       
-      <ResultHeader title={result.exam_attempts.exams.title} />
+      <ResultHeader title={result.exam_attempts.exams.title} attemptId={attemptId} />
 
       <div className="mt-6 sm:mt-8">
         <ScoreSummary

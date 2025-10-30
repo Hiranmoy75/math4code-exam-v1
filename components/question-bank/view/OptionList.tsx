@@ -1,36 +1,50 @@
-interface Option {
-  id: string
-  option_text: string
-  option_order: number
-  is_correct: boolean
-}
+"use client"
 
-export default function OptionList({ options }: { options: Option[] }) {
+import { createClient } from "@/lib/supabase/client"
+import { useEffect, useState } from "react"
+import { CheckCircle2 } from "lucide-react"
+import { renderWithLatex } from "@/lib/renderWithLatex"
+
+export default function OptionList({ questionId }: { questionId: string }) {
+  const supabase = createClient()
+  const [rows, setRows] = useState<any[]>([])
+  const [type, setType] = useState<string | null>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      const { data: q } = await supabase.from("question_bank").select("question_type").eq("id", questionId).single()
+      setType(q?.question_type ?? null)
+      if (q?.question_type !== "NAT") {
+        const { data } = await supabase
+          .from("question_bank_options")
+          .select("*")
+          .eq("question_id", questionId)
+          .order("option_order", { ascending: true })
+        setRows(data ?? [])
+      } else {
+        setRows([])
+      }
+    })()
+  }, [questionId, supabase])
+
+  if (type === "NAT") return null
+  if (rows.length === 0) return null
+
   return (
     <div>
-      <h3 className="font-semibold mb-3">Options</h3>
-      <div className="space-y-2">
-        {options.map((option) => (
-          <div
-            key={option.id}
-            className={`p-3 rounded border ${
-              option.is_correct ? "bg-green-50 border-green-300" : "bg-gray-50 border-gray-200"
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <div className="text-sm font-semibold text-gray-600 min-w-fit">
-                {String.fromCharCode(64 + option.option_order)}.
-              </div>
-              <div className="flex-1">
-                <p className="text-gray-700">{option.option_text}</p>
-                {option.is_correct && (
-                  <p className="text-xs text-green-700 font-semibold mt-1">✓ Correct Answer</p>
-                )}
-              </div>
+      <div className="text-sm font-semibold mb-2">Options</div>
+      <ul className="space-y-2">
+        {rows.map((o) => (
+          <li key={o.id} className="flex items-start gap-2">
+            <div className={`mt-0.5 ${o.is_correct ? "text-emerald-600" : "text-slate-400"}`}>
+              <CheckCircle2 className="h-4 w-4" />
             </div>
-          </div>
+            <div className={o.is_correct ? "font-medium text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300"}>
+              {renderWithLatex(o.option_text)}
+            </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   )
 }

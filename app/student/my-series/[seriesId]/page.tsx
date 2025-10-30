@@ -1,114 +1,71 @@
-'use client'
+"use client"
 
-import React, { useEffect, useState } from "react"
+import React from "react"
 import { motion } from "framer-motion"
-import { createClient } from "@/lib/supabase/client"
 import {
   BookOpen,
-  Clock,
   CheckCircle2,
   PlayCircle,
   BarChart2,
   Lock,
+  RefreshCw,
 } from "lucide-react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { use } from "react"
+import { useTestSeriesDetails } from "@/hooks/useTestSeriesDetails"
 
-export default function TestSeriesDetails({ params }: { params: { seriesId: string } }) {
-  const [loading, setLoading] = useState(true)
-  const [seriesInfo, setSeriesInfo] = useState<any>(null)
-  const [tests, setTests] = useState<any[]>([])
-  const [isEnrolled, setIsEnrolled] = useState(false)
-
-  const supabase = createClient()
+export default function TestSeriesDetails({
+  params,
+}: {
+  params: Promise<{ seriesId: string }>
+}) {
+  const { seriesId } = use(params)
+  const { data, isLoading, isFetching } = useTestSeriesDetails(seriesId)
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
     visible: (i: number) => ({
       opacity: 1,
       y: 0,
-      transition: { delay: i * 0.12, duration: 0.5 },
+      transition: { delay: i * 0.1, duration: 0.4 },
     }),
   }
 
-  useEffect(() => {
-    async function fetchSeries() {
-      setLoading(true)
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+  // 🦴 Skeleton Loader
+  const SkeletonCard = () => (
+    <div className="p-6 rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 shadow-lg animate-pulse">
+      <div className="h-5 w-1/2 bg-slate-200 dark:bg-slate-700 rounded mb-3"></div>
+      <div className="h-4 w-1/3 bg-slate-200 dark:bg-slate-700 rounded mb-5"></div>
+      <div className="h-2 w-full bg-slate-200 dark:bg-slate-700 rounded mb-2"></div>
+      <div className="h-2 w-2/3 bg-slate-200 dark:bg-slate-700 rounded"></div>
+    </div>
+  )
 
-      if (!user) return setLoading(false)
+  const SkeletonHeader = () => (
+    <div className="rounded-3xl p-6 bg-white/60 dark:bg-slate-800/50 animate-pulse">
+      <div className="h-7 w-1/3 bg-slate-200 dark:bg-slate-700 rounded mb-3"></div>
+      <div className="h-4 w-2/3 bg-slate-200 dark:bg-slate-700 rounded mb-3"></div>
+      <div className="flex gap-3">
+        <div className="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div>
+        <div className="h-5 w-20 bg-slate-200 dark:bg-slate-700 rounded"></div>
+      </div>
+    </div>
+  )
 
-      // Fetch series info
-      const { data: series, error: seriesErr } = await supabase
-        .from("test_series")
-        .select("*")
-        .eq("id", params.seriesId)
-        .single()
-
-      if (seriesErr || !series) {
-        setSeriesInfo(null)
-        setLoading(false)
-        return
-      }
-
-      // Check enrollment
-      const { data: enrollment } = await supabase
-        .from("test_series_enrollments")
-        .select("*")
-        .eq("test_series_id", params.seriesId)
-        .eq("student_id", user.id)
-        .single()
-
-      setIsEnrolled(!!enrollment)
-
-      // Fetch exams in this series
-      const { data: exams } = await supabase
-        .from("test_series_exams")
-        .select("*, exams(*)")
-        .eq("test_series_id", params.seriesId)
-        .order("exam_order", { ascending: true })
-
-      // Format exams with status
-      const formattedTests =
-        exams?.map((item: any, index: number) => {
-          const status =
-            index === 0
-              ? "Ongoing"
-              : !isEnrolled
-              ? "Locked"
-              : index < 2
-              ? "Completed"
-              : "Locked"
-
-          return {
-            id: item.exams.id,
-            name: item.exams.title,
-            duration: `${item.exams.duration_minutes} mins`,
-            marks: item.exams.total_marks,
-            status,
-            score: status === "Completed" ? Math.floor(Math.random() * item.exams.total_marks) : null,
-          }
-        }) || []
-
-      setSeriesInfo(series)
-      setTests(formattedTests)
-      setLoading(false)
-    }
-
-    fetchSeries()
-  }, [params.seriesId, supabase])
-
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-[70vh] text-slate-500 dark:text-slate-300">
-        Loading test series details...
+      <div className="p-6 md:p-10 space-y-6 bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 min-h-screen">
+        <SkeletonHeader />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       </div>
     )
   }
 
-  if (!seriesInfo) {
+  if (!data?.seriesInfo) {
     return (
       <div className="text-center py-16 text-slate-500 dark:text-slate-400">
         Test Series not found.
@@ -116,14 +73,15 @@ export default function TestSeriesDetails({ params }: { params: { seriesId: stri
     )
   }
 
+  const { seriesInfo, tests } = data
+
   return (
     <div className="p-6 md:p-10 space-y-8 bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 min-h-screen transition-colors duration-700">
-      {/* Series Header */}
+      {/* Header */}
       <motion.div
         variants={fadeIn}
         initial="hidden"
         animate="visible"
-        custom={0}
         className="rounded-3xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-lg p-6 shadow-xl border border-slate-100 dark:border-slate-700"
       >
         <h2 className="text-2xl md:text-3xl font-bold text-slate-800 dark:text-white">
@@ -147,7 +105,7 @@ export default function TestSeriesDetails({ params }: { params: { seriesId: stri
         </div>
       </motion.div>
 
-      {/* Test Cards */}
+      {/* Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {tests.map((test, idx) => (
           <motion.div
@@ -155,11 +113,9 @@ export default function TestSeriesDetails({ params }: { params: { seriesId: stri
             variants={fadeIn}
             initial="hidden"
             animate="visible"
-            custom={idx + 1}
-            whileHover={{ scale: 1.02 }}
-            className="p-6 rounded-2xl bg-white/70 dark:bg-slate-800/60 shadow-lg border border-slate-100 dark:border-slate-700 flex flex-col justify-between transition-all"
+            custom={idx}
+            className="p-6 rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 shadow-lg transition-all"
           >
-            {/* Header */}
             <div className="flex justify-between items-start">
               <div>
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
@@ -187,7 +143,7 @@ export default function TestSeriesDetails({ params }: { params: { seriesId: stri
               <div className="mt-4 flex items-center justify-between text-sm">
                 <p className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
                   <BarChart2 className="w-4 h-4 text-indigo-500" />
-                  Score:{" "}
+                  Score:
                   <span className="font-semibold text-slate-800 dark:text-slate-100">
                     {test.score}/{test.marks}
                   </span>
@@ -198,7 +154,6 @@ export default function TestSeriesDetails({ params }: { params: { seriesId: stri
               </div>
             )}
 
-            {/* Locked */}
             {test.status === "Locked" && (
               <div className="mt-4 flex items-center text-sm text-slate-500 dark:text-slate-400 gap-2">
                 <Lock className="w-4 h-4 text-slate-400" />
@@ -206,40 +161,57 @@ export default function TestSeriesDetails({ params }: { params: { seriesId: stri
               </div>
             )}
 
-            {/* Buttons */}
-            <div className="mt-6 flex justify-between items-center">
+            {/* Actions */}
+            <div className="mt-6 flex justify-between items-center gap-3">
               {test.status === "Completed" && (
-                <Link href={`/student/exam/${test.id}/result`}>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold shadow-md"
-                  >
-                    <BarChart2 className="w-4 h-4" />
-                    View Result
-                  </motion.button>
-                </Link>
+                <>
+                  <Link href={`/student/results`}>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold shadow-md"
+                    >
+                      <BarChart2 className="w-4 h-4" /> View Result
+                    </motion.button>
+                  </Link>
+                  {test.canReattempt && (
+                    <Link href={`/student/exams/${test.id}`}>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-semibold shadow-md"
+                      >
+                        <RefreshCw className="w-4 h-4" /> Reattempt
+                      </motion.button>
+                    </Link>
+                  )}
+                </>
               )}
-
               {test.status === "Ongoing" && (
-                <Link href={`/student/exam/${test.id}`}>
+                <Link href={`/student/exams/${test.id}`}>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-semibold shadow-md"
                   >
-                    <PlayCircle className="w-4 h-4" />
-                    Start Test
+                    <PlayCircle className="w-4 h-4" /> Resume Test
                   </motion.button>
                 </Link>
               )}
-
+              {test.status === "Not Started" && (
+                <Link href={`/student/exams/${test.id}`}>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-sm font-semibold shadow-md"
+                  >
+                    <PlayCircle className="w-4 h-4" /> Start Test
+                  </motion.button>
+                </Link>
+              )}
               {test.status === "Locked" && (
-                <motion.button
-                  whileHover={{ scale: 1.03 }}
+                <button
                   disabled
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-300 dark:bg-slate-700 text-slate-500 text-sm font-semibold cursor-not-allowed"
                 >
                   <Lock className="w-4 h-4" /> Locked
-                </motion.button>
+                </button>
               )}
             </div>
           </motion.div>
@@ -251,7 +223,6 @@ export default function TestSeriesDetails({ params }: { params: { seriesId: stri
         variants={fadeIn}
         initial="hidden"
         animate="visible"
-        custom={tests.length + 1}
         className="rounded-3xl mt-8 bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 flex flex-col md:flex-row items-center justify-between shadow-xl"
       >
         <div>

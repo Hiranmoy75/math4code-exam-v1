@@ -71,7 +71,7 @@ export default function AdminClientLayout({
     <>
     
 <div className="min-h-screen bg-gradient-to-br from-white via-sky-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-black transition-colors duration-700">    <Sidebar menuItems={links} sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} />
-          <Header theme={theme} toggleTheme={toggleTheme} sidebarCollapsed={sidebarCollapsed} profile={profile}/>
+          <Header theme={theme} toggleTheme={toggleTheme} sidebarCollapsed={sidebarCollapsed} profile={profile} setSidebarCollapsed={setSidebarCollapsed}/>
     
           <main
             className={`flex-1 p-4 md:p-8 mt-16 transition-all duration-500 ${sidebarCollapsed ? "md:ml-20" : "md:ml-64"
