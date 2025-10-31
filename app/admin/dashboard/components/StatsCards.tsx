@@ -1,64 +1,46 @@
 "use client"
-
-import { useEffect, useState } from "react"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { BookMarked, HelpCircle, Users, UserCheck, FolderPlus } from "lucide-react"
+import { Card} from "@/components/ui/card"
+import { FolderPlus } from "lucide-react"
 import {
-  BookOpen,
   Award,
   Clock,
   CheckCircle2,
   TrendingUp,
-  Calendar,
-  Star,
-  PlayCircle,
 } from "lucide-react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { motion } from "framer-motion";
+import { useDashboardStats } from "@/hooks/admin/dashboard/useDashboardStats";
 
 interface Props {
   userId: string
 }
 
 export default function StatsCards({ userId }: Props) {
-  const supabase = createClientComponentClient()
-  const [examsCount, setExamsCount] = useState<number | null>(null)
-  const [questionsCount, setQuestionsCount] = useState<number | null>(null)
-  const [attemptsCount, setAttemptsCount] = useState<number | null>(null)
-  const [uniqueStudents, setUniqueStudents] = useState<number | null>(null)
+ const { data, isLoading, isError, error } = useDashboardStats(userId);
 
-  useEffect(() => {
-    async function fetchStats() {
-      // Exams count
-      const { count: exams } = await supabase
-        .from("exams")
-        .select("*", { count: "exact" })
-        .eq("admin_id", userId)
-      setExamsCount(exams || 0)
+  if (isLoading)
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="p-6">
+            <div className="animate-pulse h-12 bg-gray-200 rounded-md"></div>
+          </Card>
+        ))}
+      </div>
+    );
 
-      // Sections -> questions count
-      const { data: sections } = await supabase
-        .from("sections")
-        .select("id")
-        .eq("admin_id", userId) // optional filter
-      const { count: questions } = await supabase
-        .from("questions")
-        .select("*", { count: "exact" })
-        .in("section_id", sections?.map(s => s.id) || [])
-      setQuestionsCount(questions || 0)
+  if (isError)
+    return (
+      <div className="text-center text-red-500">
+        Failed to load stats: {(error as any).message}
+      </div>
+    );
 
-      // Attempts
-      const { data: attemptsData, count: attempts } = await supabase
-        .from("exam_attempts")
-        .select("student_id", { count: "exact" })
-        .in("exam_id", sections?.map(s => s.id) || [])
-      setAttemptsCount(attempts || 0)
-      setUniqueStudents(new Set(attemptsData?.map(a => a.student_id)).size || 0)
-    }
-
-    fetchStats()
-  }, [userId, supabase])
-
+  const { examsCount, questionsCount, attemptsCount, uniqueStudents } = data ?? {
+    examsCount: 0,
+    questionsCount: 0,
+    attemptsCount: 0,
+    uniqueStudents: 0,
+  };
    const fadeIn = {
     hidden: { opacity: 0, y: 20 },
     visible: (i: number) => ({

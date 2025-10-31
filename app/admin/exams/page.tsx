@@ -1,3 +1,4 @@
+// app/admin/exams/page.tsx  (same as before)
 import { Suspense } from "react"
 import ExamsTable from "./components/ExamsTable"
 import { Button } from "@/components/ui/button"
@@ -17,12 +18,12 @@ export default function ExamsPage() {
           <Button>Create Exam</Button>
         </Link>
       </div>
-  <div className="space-y-4">
-      { <ImportExam/>}
-      {/* list of exams here */}
-    </div>
+
+      <div className="space-y-4">
+        <ImportExam/>
+      </div>
+
       <Suspense fallback={<ExamsTableSkeleton />}>
-        {/* Suspense for better performance */}
         <ExamsTable />
       </Suspense>
     </div>

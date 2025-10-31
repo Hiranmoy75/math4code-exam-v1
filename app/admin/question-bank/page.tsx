@@ -1,86 +1,96 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import dynamic from "next/dynamic"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { motion } from "framer-motion"
-import { Search, SlidersHorizontal, Plus, RefreshCw } from "lucide-react"
+import { useState } from "react";
+import dynamic from "next/dynamic";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { motion } from "framer-motion";
+import { Search, SlidersHorizontal, Plus, RefreshCw, X } from "lucide-react";
 
-import { Pill, pageBg, cardGlass } from "@/components/question-bank/ui"
-import EmptyState from "@/components/question-bank/EmptyState"
-import { useQuestionQuery } from "@/components/question-bank/useQuestionQuery"
-import { QuestionTable } from "@/components/question-bank/table/QuestionTable"
-import { columns as makeColumns } from "@/components/question-bank/table/columns"
-import { createClient } from "@/lib/supabase/client"
-import ImportQuestions from "./ImportQuestions"
+import { Pill, pageBg, cardGlass } from "@/components/question-bank/ui";
+import EmptyState from "@/components/question-bank/EmptyState";
+import { QuestionTable } from "@/components/question-bank/table/QuestionTable";
+import { columns as makeColumns } from "@/components/question-bank/table/columns";
+import ImportQuestions from "./ImportQuestions";
 
-const QuestionForm = dynamic(() => import("@/components/question-bank/QuestionForm"), { ssr: false })
+import { useCurrentAdmin } from "@/hooks/admin/question-bank/useCurrentAdmin";
+import { useQuestions } from "@/hooks/admin/question-bank/useQuestions";
+import { useDeleteQuestion } from "@/hooks/admin/question-bank/useDeleteQuestion";
+
+const QuestionForm = dynamic(
+  () => import("@/components/question-bank/QuestionForm"),
+  { ssr: false }
+);
 
 export default function QuestionBankPage() {
-  const router = useRouter()
-  const qs = useSearchParams()
-  const supabase = createClient()
-  
+  const [createOpen, setCreateOpen] = useState(false);
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [adminId, setUserId] = useState<string | null>(null)
+  // ✅ Local filter state (No URL params)
+  const [filters, setFilters] = useState({
+    page: 1,
+    pageSize: 10,
+    search: "",
+    subject: "all",
+    difficulty: "all",
+    qtype: "all",
+  });
 
-    useEffect(() => {
-    const fetchUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUserId(user?.id ?? null)
-    }
-    fetchUser()
-  }, [supabase])
+  const { data: adminId } = useCurrentAdmin();
+  const { mutateAsync: deleteQuestion } = useDeleteQuestion();
 
-  const page = Number(qs.get("page") ?? "1")
-  const pageSize = 10
-  const search = qs.get("q") ?? ""
-  const subject = qs.get("subject") ?? "all"
-  const difficulty = qs.get("difficulty") ?? "all"
-  const qtype = qs.get("type") ?? "all"
+  // ✅ Fetch questions with current filters
+  const { data, isLoading, refetch } = useQuestions(filters);
 
-  const { loading, rows, pages } = useQuestionQuery({
-    page,
-    pageSize,
-    search,
-    subject,
-    difficulty,
-    qtype,
-  })
+  // Handlers
+  const setFilter = (key: string, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+      page: 1,
+    }));
+  };
 
-  const setQuery = (key: string, value: string) => {
-    const params = new URLSearchParams(qs.toString())
-    if (!value || value === "all") params.delete(key)
-    else params.set(key, value)
-    params.set("page", "1")
-    router.push(`/admin/question-bank?${params.toString()}`)
-  }
+  const clearFilter = (key: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]:
+        key === "search"
+          ? ""
+          : key === "page"
+          ? 1
+          : key === "pageSize"
+          ? 10
+          : "all",
+    }));
+  };
 
   const onPageChange = (p: number) => {
-    const params = new URLSearchParams(qs.toString())
-    params.set("page", String(p))
-    router.push(`/admin/question-bank?${params.toString()}`)
-  }
+    setFilters((prev) => ({ ...prev, page: p }));
+  };
 
-  const columns = makeColumns(async (id) => {
-    // delete options first (no cascade in schema)
-    await supabase.from("question_bank_options").delete().eq("question_id", id)
-    const { error } = await supabase.from("question_bank").delete().eq("id", id)
-    if (!error) router.refresh()
-  })
+  const columns = makeColumns(async (id: string) => {
+    await deleteQuestion(id);
+  });
 
   return (
     <div className={`space-y-6 ${pageBg}`}>
-       {adminId && <ImportQuestions adminId={adminId} />}
+      {adminId && <ImportQuestions adminId={adminId} />}
+
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
@@ -91,36 +101,48 @@ export default function QuestionBankPage() {
             Welcome back, <span className="text-indigo-600">Hiranmoy</span>!
           </h1>
           <p className="text-slate-600 dark:text-slate-300 mt-2">
-            Keep up the great work! You’re progressing steadily towards your goals.
+            Keep up the great work! You’re progressing steadily towards your
+            goals.
           </p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setCreateOpen(true)}>
+        <Button
+          className="bg-emerald-600 hover:bg-emerald-700"
+          onClick={() => setCreateOpen(true)}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Create Question
         </Button>
       </motion.div>
 
-      {/* toolbar */}
+      {/* Toolbar */}
       <Card className={`${cardGlass}`}>
         <CardContent className="p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            {/* Search */}
             <div className="flex items-center gap-2 w-full md:w-96">
               <div className="relative w-full">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
                   className="pl-8"
                   placeholder="Search question text…"
-                  defaultValue={search}
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      search: e.target.value,
+                    }))
+                  }
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") setQuery("q", (e.target as HTMLInputElement).value)
+                    if (e.key === "Enter") refetch();
                   }}
                 />
               </div>
-              <Button variant="outline" onClick={() => setQuery("q", search)}>
+              <Button variant="outline" onClick={() => refetch()}>
                 Search
               </Button>
             </div>
 
+            {/* Filters */}
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -130,26 +152,73 @@ export default function QuestionBankPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Subject</div>
+                  {/* Subject */}
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                    Subject
+                  </div>
                   {["all", "math", "cs", "physics"].map((s) => (
-                    <DropdownMenuItem key={s} onClick={() => setQuery("subject", s)}>
-                      <Pill color={subject === s ? "blue" : "gray"} className="mr-2">{s.toUpperCase()}</Pill>
+                    <DropdownMenuItem
+                      key={s}
+                      onClick={() => setFilter("subject", s)}
+                    >
+                      <Pill
+                        color={filters.subject === s ? "blue" : "gray"}
+                        className="mr-2"
+                      >
+                        {s.toUpperCase()}
+                      </Pill>
                     </DropdownMenuItem>
                   ))}
                   <Separator className="my-2" />
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Difficulty</div>
+
+                  {/* Difficulty */}
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                    Difficulty
+                  </div>
                   {["all", "easy", "medium", "hard"].map((d) => (
-                    <DropdownMenuItem key={d} onClick={() => setQuery("difficulty", d)}>
-                      <Pill color={d === "easy" ? "mint" : d === "medium" ? "amber" : d === "hard" ? "red" : "gray"} className="mr-2">
+                    <DropdownMenuItem
+                      key={d}
+                      onClick={() => setFilter("difficulty", d)}
+                    >
+                      <Pill
+                        color={
+                          d === "easy"
+                            ? "mint"
+                            : d === "medium"
+                            ? "amber"
+                            : d === "hard"
+                            ? "red"
+                            : "gray"
+                        }
+                        className="mr-2"
+                      >
                         {d.toUpperCase()}
                       </Pill>
                     </DropdownMenuItem>
                   ))}
                   <Separator className="my-2" />
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Type</div>
+
+                  {/* Type */}
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                    Type
+                  </div>
                   {["all", "MCQ", "MSQ", "NAT"].map((t) => (
-                    <DropdownMenuItem key={t} onClick={() => setQuery("type", t)}>
-                      <Pill color={t === "MCQ" ? "violet" : t === "MSQ" ? "pink" : t === "NAT" ? "mint" : "gray"} className="mr-2">
+                    <DropdownMenuItem
+                      key={t}
+                      onClick={() => setFilter("qtype", t)}
+                    >
+                      <Pill
+                        color={
+                          t === "MCQ"
+                            ? "violet"
+                            : t === "MSQ"
+                            ? "pink"
+                            : t === "NAT"
+                            ? "mint"
+                            : "gray"
+                        }
+                        className="mr-2"
+                      >
                         {t}
                       </Pill>
                     </DropdownMenuItem>
@@ -157,50 +226,114 @@ export default function QuestionBankPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="outline" onClick={() => router.refresh()}>
+              <Button variant="outline" onClick={() => refetch()}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
             </div>
           </div>
 
-          {/* chips */}
+          {/* Filter Chips with ✕ clear */}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {subject !== "all" && <Pill color="blue">Subject: {subject}</Pill>}
-            {difficulty !== "all" && <Pill color={difficulty === "easy" ? "mint" : difficulty === "medium" ? "amber" : "red"}>Difficulty: {difficulty}</Pill>}
-            {qtype !== "all" && <Pill color={qtype === "MCQ" ? "violet" : qtype === "MSQ" ? "pink" : "mint"}>Type: {qtype}</Pill>}
-            {search && <Pill color="gray">Query: “{search}”</Pill>}
+            {filters.subject !== "all" && (
+              <Pill color="blue" className="flex items-center gap-2">
+                Subject: {filters.subject}
+                <button
+                  onClick={() => clearFilter("subject")}
+                  className="text-xs text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Pill>
+            )}
+
+            {filters.difficulty !== "all" && (
+              <Pill
+                color={
+                  filters.difficulty === "easy"
+                    ? "mint"
+                    : filters.difficulty === "medium"
+                    ? "amber"
+                    : "red"
+                }
+                className="flex items-center gap-2"
+              >
+                Difficulty: {filters.difficulty}
+                <button
+                  onClick={() => clearFilter("difficulty")}
+                  className="text-xs text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Pill>
+            )}
+
+            {filters.qtype !== "all" && (
+              <Pill
+                color={
+                  filters.qtype === "MCQ"
+                    ? "violet"
+                    : filters.qtype === "MSQ"
+                    ? "pink"
+                    : "mint"
+                }
+                className="flex items-center gap-2"
+              >
+                Type: {filters.qtype}
+                <button
+                  onClick={() => clearFilter("qtype")}
+                  className="text-xs text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Pill>
+            )}
+
+            {filters.search && (
+              <Pill color="gray" className="flex items-center gap-2">
+                Query: “{filters.search}”
+                <button
+                  onClick={() => clearFilter("search")}
+                  className="text-xs text-slate-400 hover:text-slate-700"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Pill>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* table */}
+      {/* Table */}
       <QuestionTable
         columns={columns}
-        data={rows}
-        page={page}
-        pages={pages}
+        data={data?.rows ?? []}
+        page={filters.page}
+        pages={data?.pages ?? 1}
         onPageChange={onPageChange}
-        loading={loading}
+        loading={isLoading}
         empty={<EmptyState onCreate={() => setCreateOpen(true)} />}
       />
 
-      {/* create sheet */}
+      {/* Create Question Sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-2xl overflow-y-auto"
+        >
           <SheetHeader>
             <SheetTitle>Create a new Question</SheetTitle>
           </SheetHeader>
           <div className="mt-4">
             <QuestionForm
               onSuccess={() => {
-                setCreateOpen(false)
-                router.refresh()
+                setCreateOpen(false);
+                refetch();
               }}
             />
           </div>
         </SheetContent>
       </Sheet>
     </div>
-  )
+  );
 }
