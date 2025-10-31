@@ -71,7 +71,7 @@ export default function MyTestSeries() {
   // ✅ Loading Skeleton View
   if (isLoading) {
     return (
-      <div className="p-4 sm:p-6 md:p-10 space-y-8 bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 min-h-screen">
+      <div className="p-4 sm:p-6 md:p-10 space-y-8 bg-gradient-to-br from-sky-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 min-h-screen">
         <SkeletonHeader />
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -83,7 +83,7 @@ export default function MyTestSeries() {
   }
 
   return (
-    <div className="p-4 sm:p-6 md:p-10 space-y-8 bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 min-h-screen transition-colors duration-700 overflow-x-hidden">
+    <div className="p-4 sm:p-6 md:p-10 space-y-8 bg-gradient-to-br from-sky-50 via-white to-green-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900 min-h-screen transition-colors duration-700 overflow-x-hidden">
       {/* Header */}
       <motion.div
         variants={fadeIn}
@@ -107,7 +107,7 @@ export default function MyTestSeries() {
               size="sm"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800"
+              className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-slate-800"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
               {isFetching ? "Refreshing..." : "Refresh"}
@@ -134,7 +134,7 @@ export default function MyTestSeries() {
     onClick={() =>
       setViewType(viewType === "grid" ? "list" : "grid")
     }
-    className="border-indigo-500 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 flex-shrink-0"
+    className="border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-slate-800 flex-shrink-0"
   >
     {viewType === "grid" ? (
       <List className="w-4 h-4" />
@@ -147,7 +147,7 @@ export default function MyTestSeries() {
   </Button>
 
   <Link href="/student/test-series">
-    <Button className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold shadow-md flex-shrink-0">
+    <Button className="bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold shadow-md flex-shrink-0">
       + Buy New
     </Button>
   </Link>
@@ -190,7 +190,7 @@ export default function MyTestSeries() {
                       className={`text-xs px-2 py-1 rounded-full font-medium ${
                         series.status === "Completed"
                           ? "bg-green-100 text-green-700 dark:bg-green-700/30 dark:text-green-300"
-                          : "bg-indigo-100 text-indigo-700 dark:bg-indigo-700/30 dark:text-indigo-300"
+                          : "bg-green-100 text-green-700 dark:bg-green-700/30 dark:text-green-300"
                       }`}
                     >
                       {series.status}
@@ -213,14 +213,14 @@ export default function MyTestSeries() {
                         initial={{ width: 0 }}
                         animate={{ width: `${series.progress}%` }}
                         transition={{ duration: 0.8 }}
-                        className={`h-2 rounded-full bg-gradient-to-r ${series.color}`}
+                        className={`h-2 rounded-full bg-gradient-to-r bg-gradient-to-r from-green-500 to-emerald-600`}
                       />
                     </div>
                   </div>
 
                   <div className="mt-4 flex justify-between items-center text-sm text-slate-600 dark:text-slate-400">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-indigo-500" />
+                      <Calendar className="w-4 h-4 text-green-500" />
                       <span>
                         Next Test:{" "}
                         <strong className="text-slate-800 dark:text-slate-200">
@@ -239,7 +239,7 @@ export default function MyTestSeries() {
 
                 <div className="mt-5 sm:mt-0 flex sm:flex-col justify-between sm:justify-center gap-3 sm:gap-2 sm:ml-6">
                   <Link href={`/student/my-series/${series.id}`}>
-                    <Button className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-sm shadow-md w-full sm:w-auto">
+                    <Button className="flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm shadow-md w-full sm:w-auto">
                       <PlayCircle className="w-4 h-4" />
                       {series.progress < 100 ? "Start" : "Review"}
                     </Button>
@@ -248,7 +248,7 @@ export default function MyTestSeries() {
                   <Link href={`/student/test-series/${series.id}`}>
                     <Button
                       variant="outline"
-                      className="flex items-center gap-2 text-sm border-indigo-400 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 w-full sm:w-auto"
+                      className="flex items-center gap-2 text-sm border-green-400 text-green-600 hover:bg-green-50 dark:hover:bg-slate-800 w-full sm:w-auto"
                     >
                       <BookOpen className="w-4 h-4" />
                       View
@@ -265,7 +265,7 @@ export default function MyTestSeries() {
             You haven’t enrolled in any test series yet.
           </p>
           <Link href="/student/test-series">
-            <Button className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold shadow-md">
+            <Button className="bg-gradient-to-r from-green-500 to-purple-500 text-white font-semibold shadow-md">
               Browse Available Series
             </Button>
           </Link>
@@ -278,7 +278,7 @@ export default function MyTestSeries() {
           initial="hidden"
           animate="visible"
           custom={seriesData.length + 1}
-          className="rounded-3xl mt-10 bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 text-center shadow-xl"
+          className="rounded-3xl mt-10 bg-gradient-to-br from-green-500 to-purple-600 text-white p-6 text-center shadow-xl"
         >
           <h4 className="text-lg font-semibold">
             Keep it up! <CheckCircle2 className="inline-block w-5 h-5 ml-1" />

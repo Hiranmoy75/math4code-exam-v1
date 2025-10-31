@@ -55,9 +55,8 @@ export default function RootLayout({
         <ReactQueryProviders>
           <MathJaxContext version={3} config={config}>
             {children}
-          </MathJaxContext>
-          
-           </ReactQueryProviders>
+          </MathJaxContext>          
+        </ReactQueryProviders>
         <Analytics />
       </body>
     </html>

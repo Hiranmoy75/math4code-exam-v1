@@ -1,56 +1,71 @@
-import type React from "react"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarTrigger,
-  SidebarInset,
-} from "@/components/ui/sidebar"
-import { BookOpen, BarChart3, LogOut, Home, Grid } from "lucide-react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { IconBrandTabler, IconUserBolt } from "@tabler/icons-react"
-import AdminClientLayout from "../admin/AdminClientLayout"
+"use client";
 
-export default async function StudentLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import AdminClientLayout from "../admin/AdminClientLayout";
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+export default function StudentLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  useEffect(() => {
+    const checkAuth = async () => {
+      const {
+        data: { user },
+        error: userErr,
+      } = await supabase.auth.getUser();
 
-  if (!profile || profile.role !== "student") {
-    redirect("/admin/dashboard")
-  }
+      if (userErr || !user) {
+        router.replace("/auth/login");
+        return;
+      }
 
-  const handleLogout = async () => {
-    "use server"
-    const supabase = await createClient()
-    await supabase.auth.signOut()
-    redirect("/auth/login")
-  }
+      const { data: profileData, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
-   const links = [
+      if (error || !profileData) {
+        router.replace("/auth/login");
+        return;
+      }
+
+      if (profileData.role !== "student") {
+        router.replace("/admin/dashboard");
+        return;
+      }
+
+      setProfile(profileData);
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, [router, supabase]);
+
+  const links = [
     { icon: "home", label: "Dashboard", href: "/student/dashboard" },
-    { icon: "book", label: "My Series", href: "/student/my-series"},    
-    { icon: "book", label: "Result", href: "/student/results"},    
-    { icon: "book", label: "All Series", href: "/student/all-test-series"},    
+    { icon: "book", label: "My Series", href: "/student/my-series" },
+    { icon: "book", label: "Result", href: "/student/results" },
+    { icon: "book", label: "All Series", href: "/student/all-test-series" },
+    { icon: "settings", label: "Settings", href: "/student/settings" },
   ];
 
-return <AdminClientLayout profile={profile} links={links}>{children}</AdminClientLayout>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-gray-600">
+        Checking student access...
+      </div>
+    );
+  }
+
+  return (
+    <AdminClientLayout profile={profile} links={links}>
+      {children}
+    </AdminClientLayout>
+  );
 }
+  
