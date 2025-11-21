@@ -58,9 +58,13 @@ export const useQuestions = (filters: QuestionFilters) => {
       if (error) throw error;
 
       const totalPages = Math.ceil((count ?? 0) / filters.pageSize);
-      return { rows: data ?? [], pages: totalPages };
+      return {
+        rows: data ?? [],
+        pages: totalPages,
+        total: count ?? 0
+      };
     },
-     placeholderData: (previousData) => previousData, // smoother pagination
+    placeholderData: (previousData) => previousData, // smoother pagination
     staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: false,
   });

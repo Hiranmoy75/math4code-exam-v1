@@ -1,17 +1,17 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts"
+import { useEffect, useState } from "react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 interface Props { userId: string }
 
 export default function ExamCharts({ userId }: Props) {
-  const [attemptsData, setAttemptsData] = useState<any[]>([])
-  const [performanceData, setPerformanceData] = useState<any[]>([])
+  const [attemptsData, setAttemptsData] = useState<any[]>([]);
+  const [performanceData, setPerformanceData] = useState<any[]>([]);
 
   useEffect(() => {
-    // Hardcoded for demo
+    // TODO: Fetch real data from API
     setAttemptsData([
       { name: "Mon", attempts: 12 },
       { name: "Tue", attempts: 19 },
@@ -20,7 +20,7 @@ export default function ExamCharts({ userId }: Props) {
       { name: "Fri", attempts: 22 },
       { name: "Sat", attempts: 18 },
       { name: "Sun", attempts: 14 },
-    ])
+    ]);
     setPerformanceData([
       { name: "Mon", avgScore: 78 },
       { name: "Tue", avgScore: 82 },
@@ -29,50 +29,107 @@ export default function ExamCharts({ userId }: Props) {
       { name: "Fri", avgScore: 88 },
       { name: "Sat", avgScore: 90 },
       { name: "Sun", avgScore: 87 },
-    ])
-  }, [userId])
+    ]);
+  }, [userId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card className="group relative overflow-hidden rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 shadow-md backdrop-blur-md transition-all duration-500 hover:-translate-y-1 hover:shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-indigo-400/5 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
+      <Card className="border-none shadow-lg bg-white dark:bg-slate-800">
         <CardHeader>
-          <CardTitle>Exam Attempts</CardTitle>
-          <CardDescription>Weekly submissions</CardDescription>
+          <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">Exam Attempts</CardTitle>
+          <CardDescription className="text-slate-500 dark:text-slate-400">Weekly student submissions</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={attemptsData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="attempts" fill="#6366f1" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={attemptsData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}`}
+                />
+                <Tooltip
+                  cursor={{ fill: 'transparent' }}
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderRadius: '8px',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                  }}
+                />
+                <Bar
+                  dataKey="attempts"
+                  fill="#6366f1"
+                  radius={[4, 4, 0, 0]}
+                  barSize={32}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 
-      <Card className="group relative overflow-hidden rounded-2xl bg-white/70 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 shadow-md backdrop-blur-md transition-all duration-500 hover:-translate-y-1 hover:shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-sky-500/10 via-indigo-400/5 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
+      <Card className="border-none shadow-lg bg-white dark:bg-slate-800">
         <CardHeader>
-          <CardTitle>Performance Trend</CardTitle>
-          <CardDescription>Average scores</CardDescription>
+          <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">Performance Trend</CardTitle>
+          <CardDescription className="text-slate-500 dark:text-slate-400">Average student scores</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={performanceData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Area type="monotone" dataKey="avgScore" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={performanceData}>
+                <defs>
+                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#94a3b8"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}%`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderRadius: '8px',
+                    border: 'none',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="avgScore"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorScore)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bell,
-  Menu,
   Moon,
   Sun,
   User,
@@ -11,9 +10,15 @@ import {
   Info,
   LogOut,
   X,
+  Search,
+  Command,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 export default function Header({
   theme,
@@ -25,23 +30,20 @@ export default function Header({
   theme: string;
   toggleTheme: () => void;
   sidebarCollapsed: boolean;
-  profile:any;
-  setSidebarCollapsed:any;
-
+  profile: any;
+  setSidebarCollapsed: any;
 }) {
+  const router = useRouter();
   const [openProfile, setOpenProfile] = useState(false);
   const [openNotif, setOpenNotif] = useState(false);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  // close when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(e.target as Node)
-      ) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setOpenProfile(false);
       }
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -52,242 +54,197 @@ export default function Header({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-   const handleLogout = async () => {
+  const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    redirect("/auth/login");
+    router.push("/auth/login");
   };
 
   const notifications = [
     {
-      name: "Terry Franci",
-      project: "Nganter App",
+      id: 1,
+      title: "New Student Enrolled",
+      message: "Rahul Kumar enrolled in JEE Mains Series",
       time: "5 min ago",
-      status: "online",
-      img: "https://randomuser.me/api/portraits/men/32.jpg",
+      type: "success",
+      read: false
     },
     {
-      name: "Alena Franci",
-      project: "Nganter App",
-      time: "8 min ago",
-      status: "online",
-      img: "https://randomuser.me/api/portraits/women/44.jpg",
+      id: 2,
+      title: "System Update",
+      message: "Maintenance scheduled for tonight at 2 AM",
+      time: "2 hrs ago",
+      type: "info",
+      read: true
     },
     {
-      name: "Jocelyn Kenter",
-      project: "Nganter App",
-      time: "15 min ago",
-      status: "online",
-      img: "https://randomuser.me/api/portraits/women/65.jpg",
-    },
-    {
-      name: "Brandon Philips",
-      project: "Nganter App",
-      time: "1 hr ago",
-      status: "offline",
-      img: "https://randomuser.me/api/portraits/men/67.jpg",
+      id: 3,
+      title: "Exam Published",
+      message: "Physics Mock Test 04 is now live",
+      time: "5 hrs ago",
+      type: "success",
+      read: true
     },
   ];
 
   return (
-    <>
-      {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 flex items-center justify-between p-4 bg-white/90 dark:bg-slate-900/70 backdrop-blur-lg shadow-md z-30">
-        <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)} // toggle sidebar
-        className="p-2 bg-indigo-600 text-white rounded-md"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
-        <h1 className="text-lg font-bold text-slate-800 dark:text-white">
-          Dashboard
-        </h1>
+    <header
+      className={`fixed top-0 right-0 h-16 z-30 flex items-center justify-between px-4 md:px-8 transition-all duration-300
+      ${sidebarCollapsed ? "md:left-20" : "md:left-72"} left-0
+      bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm`}
+    >
+      {/* Left Side: Search or Breadcrumbs */}
+      <div className="flex items-center gap-4 ml-12 md:ml-0">
+        <div className="hidden md:flex items-center relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search..."
+            className="h-10 pl-10 pr-4 rounded-full bg-slate-100 dark:bg-slate-800 border-none focus:ring-2 focus:ring-indigo-500/20 w-64 text-sm transition-all"
+          />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <span className="text-[10px] font-medium text-slate-400 border border-slate-300 dark:border-slate-600 rounded px-1.5 py-0.5">⌘K</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Side: Actions */}
+      <div className="flex items-center gap-2 md:gap-4">
+        {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          className="p-2 bg-white dark:bg-slate-800 rounded-md shadow-sm"
+          className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
         >
-          {theme === "light" ? (
-            <Moon className="w-5 h-5 text-slate-600" />
-          ) : (
-            <Sun className="w-5 h-5 text-yellow-400" />
-          )}
+          {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
         </button>
-      </header>
 
-      {/* Desktop Header */}
-      <header
-        className={`hidden md:flex fixed top-0 right-0 items-center justify-between h-16 px-8 
-        bg-white/90 dark:bg-slate-900/70 backdrop-blur-lg shadow-lg transition-all duration-500 z-20 
-        ${sidebarCollapsed ? "left-20" : "left-64"}`}
-      >
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Overview of your system
-          </p>
-        </div>
+        {/* Notifications */}
+        <div ref={notifRef} className="relative">
+          <button
+            onClick={() => setOpenNotif(!openNotif)}
+            className="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
+          >
+            <Bell className="w-5 h-5" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+          </button>
 
-        <div className="flex items-center gap-4">
-          {/* Notification Button */}
-          <div ref={notifRef} className="relative">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              onClick={() => setOpenNotif(!openNotif)}
-              className="relative p-2 rounded-lg bg-white dark:bg-slate-800/60 shadow-sm border border-slate-100 dark:border-slate-700"
-            >
-              <Bell className="w-5 h-5 text-slate-600 dark:text-slate-200" />
-              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-semibold text-white bg-rose-500 rounded-full">
-                4
-              </span>
-            </motion.button>
-
-            {/* Notification Dropdown */}
-            <AnimatePresence>
-              {openNotif && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.25 }}
-                  className="absolute right-0 top-12 w-96 rounded-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-lg shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden"
-                >
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-                    <h4 className="font-semibold text-slate-800 dark:text-white">
-                      Notification
-                    </h4>
-                    <button
-                      onClick={() => setOpenNotif(false)}
-                      className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="max-h-72 overflow-y-auto custom-scrollbar">
-                    {notifications.map((n, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-3 px-4 py-3 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-all"
-                      >
-                        <div className="relative">
-                          <img
-                            src={n.img}
-                            alt={n.name}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                          <span
-                            className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                              n.status === "online"
-                                ? "bg-green-500"
-                                : "bg-red-500"
-                            }`}
-                          />
+          <AnimatePresence>
+            {openNotif && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="absolute right-0 top-14 w-80 md:w-96 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden origin-top-right"
+              >
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
+                  <button className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
+                    Mark all as read
+                  </button>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
+                  {notifications.map((notif) => (
+                    <div key={notif.id} className={`p-4 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!notif.read ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}>
+                      <div className="flex gap-3">
+                        <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 
+                          ${notif.type === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                            notif.type === 'info' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                              'bg-slate-100 text-slate-600'}`}>
+                          {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <Info className="w-4 h-4" />}
                         </div>
                         <div>
-                          <p className="text-sm text-slate-700 dark:text-slate-100 leading-tight">
-                            <span className="font-semibold">{n.name}</span>{" "}
-                            requests permission to change{" "}
-                            <span className="font-medium text-indigo-600 dark:text-indigo-400">
-                              Project - {n.project}
-                            </span>
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            <span>Project</span>
-                            <span>•</span>
-                            <span>{n.time}</span>
-                          </div>
+                          <h4 className="text-sm font-medium text-slate-900 dark:text-white">{notif.title}</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{notif.message}</p>
+                          <span className="text-[10px] text-slate-400 mt-2 block">{notif.time}</span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-slate-100 dark:border-slate-700">
-                    <button className="w-full py-2.5 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-slate-700/40 transition-all">
-                      View All Notifications
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Profile Button */}
-          <div ref={profileRef} className="relative">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              onClick={() => setOpenProfile(!openProfile)}
-              className="flex items-center gap-2 p-2 rounded-lg bg-white dark:bg-slate-800/60 shadow-sm cursor-pointer border border-slate-100 dark:border-slate-700"
-            >
-              <div className="w-9 h-9 rounded-md bg-gradient-to-br from-indigo-600 to-purple-600 text-white flex items-center justify-center font-semibold">
-                HM
-              </div>
-              <div className="hidden sm:flex flex-col">
-                <span className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                  {profile.full_name}
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  {profile.role || "Administrator"}
-                </span>
-              </div>
-            </motion.div>
-
-            {/* Profile Dropdown */}
-            <AnimatePresence>
-              {openProfile && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.25 }}
-                  className="absolute right-0 top-14 w-64 rounded-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-lg shadow-2xl border border-slate-100 dark:border-slate-700 overflow-hidden"
-                >
-                  <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-                    <h4 className="font-semibold text-slate-800 dark:text-white">
-                      {profile.full_name}
-                    </h4>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      {profile.email}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col py-2">
-                    <button className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all text-slate-700 dark:text-slate-200">
-                      <User className="w-4 h-4" /> Edit Profile
-                    </button>
-                    <button className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all text-slate-700 dark:text-slate-200">
-                      <Settings className="w-4 h-4" /> Account Settings
-                    </button>
-                    <button className="flex items-center gap-3 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-all text-slate-700 dark:text-slate-200">
-                      <Info className="w-4 h-4" /> Support
-                    </button>
-                  </div>
-
-                  <div className="border-t border-slate-100 dark:border-slate-700">
-                    <button className="flex items-center gap-3 w-full px-4 py-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium transition-all" onClick={handleLogout}>
-                      <LogOut className="w-4 h-4" /> Sign Out
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Theme Toggle */}
-          <motion.button
-            whileTap={{ rotate: 180 }}
-            onClick={toggleTheme}
-            className="p-2 rounded-lg bg-white dark:bg-slate-800/60 shadow-sm border border-slate-100 dark:border-slate-700"
-          >
-            {theme === "light" ? (
-              <Moon className="w-5 h-5 text-slate-600" />
-            ) : (
-              <Sun className="w-5 h-5 text-yellow-400" />
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 border-t border-slate-100 dark:border-slate-800 text-center">
+                  <button className="text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors">
+                    View All Notifications
+                  </button>
+                </div>
+              </motion.div>
             )}
-          </motion.button>
+          </AnimatePresence>
         </div>
-      </header>
-    </>
+
+        {/* Profile */}
+        <div ref={profileRef} className="relative ml-2">
+          <button
+            onClick={() => setOpenProfile(!openProfile)}
+            className="flex items-center gap-3 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-md">
+              {profile?.full_name?.[0] || "A"}
+            </div>
+            <div className="hidden md:block text-left mr-2">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-none">
+                {profile?.full_name || "Admin"}
+              </p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                {profile?.role || "Administrator"}
+              </p>
+            </div>
+            <ChevronDown className="w-4 h-4 text-slate-400 hidden md:block" />
+          </button>
+
+          <AnimatePresence>
+            {openProfile && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="absolute right-0 top-14 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden origin-top-right"
+              >
+                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                  <p className="font-medium text-slate-900 dark:text-white">{profile?.full_name}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{profile?.email}</p>
+                </div>
+                <div className="p-2">
+                  <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <User className="w-4 h-4" /> Profile
+                  </button>
+                  <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <Settings className="w-4 h-4" /> Settings
+                  </button>
+                </div>
+                <div className="p-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" /> Sign Out
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function ChevronDown({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
   );
 }

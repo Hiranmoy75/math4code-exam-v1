@@ -1,36 +1,27 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+/* app/(public)/page.tsx */
+"use client";
 
-export default async function Home() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+import React from "react";
+import { Hero } from "@/components/landing/Hero";
+import { FeaturesGrid } from "@/components/landing/Features";
+import { MagicSection } from "@/components/landing/MagicSection";
+import { StatsSection } from "@/components/landing/Stats";
+import { Testimonials } from "@/components/landing/Testimonials";
+import { Pricing } from "@/components/landing/Pricing";
+import { CTA } from "@/components/landing/CTA";
+import { Footer } from "@/components/landing/Footer";
 
-  if (user) {
-    redirect("/dashboard")
-  }
-
+export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full text-center">
-        <h1 className="text-5xl font-bold text-gray-900 mb-4">math4code</h1>
-        <p className="text-xl text-gray-700 mb-8">Premium online exam system for IIT JEE and IIT JAM preparation</p>
-        <div className="flex gap-4 justify-center">
-          <Link href="/auth/login">
-            <Button size="lg" variant="default">
-              Login
-            </Button>
-          </Link>
-          <Link href="/auth/sign-up">
-            <Button size="lg" variant="outline">
-              Sign Up
-            </Button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
+    <main className="min-h-screen bg-white text-slate-900">
+      <Hero />
+      <FeaturesGrid />
+      <MagicSection />
+      <StatsSection />
+      <Testimonials />
+      <Pricing />
+      <CTA />
+      <Footer />
+    </main>
+  );
 }

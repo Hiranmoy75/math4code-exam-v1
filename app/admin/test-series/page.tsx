@@ -1,30 +1,39 @@
-// app/admin/test-series/page.tsx
-import { Suspense } from "react"
-import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
-import Link from "next/link"
-import TestSeriesList from "./components/TestSeriesList"
-import TestSeriesSkeleton from "./components/TestSeriesSkeleton"
+"use server";
 
-export default function TestSeriesPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Test Series</h1>
-          <p className="text-gray-600">Create and manage test series for students</p>
+import { Suspense } from "react";
+import TestSeriesHeader from "./components/TestSeriesHeader";
+import TestSeriesList from "./components/TestSeriesList";
+import TestSeriesSkeleton from "./components/TestSeriesSkeleton";
+import SeriesListWrapper from "./components/SeriesListWrapper";
+import { createClient } from "@/lib/supabase/server";
+
+export default async function TestSeriesPage() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Server‑side fetch of stats
+    const { data: series, error } = await supabase
+        .from("test_series")
+        .select("status")
+        .eq("admin_id", user?.id);
+
+    const total = series?.length ?? 0;
+    const published = series?.filter((s: any) => s.status === "published").length ?? 0;
+    const draft = series?.filter((s: any) => s.status === "draft").length ?? 0;
+
+    return (
+        <div className="space-y-8 p-2 md:p-1">
+            <TestSeriesHeader
+                stats={{ total, published, draft }}
+                loading={false}
+                error={error ? (error as any).message : null}
+            />
+
+            <SeriesListWrapper>
+                <Suspense fallback={<TestSeriesSkeleton count={3} />}>
+                    <TestSeriesList />
+                </Suspense>
+            </SeriesListWrapper>
         </div>
-        <Link href="/admin/test-series/create">
-          <Button className="flex items-center gap-2">
-            <Plus className="w-4 h-4" /> Create Series
-          </Button>
-        </Link>
-      </div>
-
-      {/* Suspense fallback */}
-      <Suspense fallback={<TestSeriesSkeleton count={3} />}>
-        <TestSeriesList />
-      </Suspense>
-    </div>
-  )
+    );
 }

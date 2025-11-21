@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { ReactQueryProviders } from "@/lib/provider/Provider"
 import { MathJaxContext } from "better-react-mathjax"
+import { Toaster } from "sonner"
 
 const _geist = Geist({
   subsets: ["latin"],
@@ -21,14 +22,24 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  userScalable: false, // Disable pinch zoom for app-like feel
+  viewportFit: "cover", // Use full screen area including notch
+  themeColor: "#ffffff",
 }
 
 export const metadata: Metadata = {
   title: "math4code - Online Exam System",
   description: "Premium online exam system for IIT JEE and IIT JAM preparation",
   generator: "Hiranmoy Mandal",
+  manifest: "/manifest.json", // Link to manifest
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Math4Code",
+  },
   icons: {
     icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png", // You should add this icon
   },
 }
 
@@ -46,16 +57,19 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="dar">
+    <html lang="en" suppressHydrationWarning className="antialiased">
       <head>
         <meta charSet="utf-8" />
         <meta name="theme-color" content="#ffffff" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className={`font-sans antialiased `}>
         <ReactQueryProviders>
           <MathJaxContext version={3} config={config}>
             {children}
-          </MathJaxContext>          
+          </MathJaxContext>
+          <Toaster richColors position="top-center" />
         </ReactQueryProviders>
         <Analytics />
       </body>

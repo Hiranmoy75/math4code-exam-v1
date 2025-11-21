@@ -120,8 +120,36 @@
     @apply bg-background text-foreground;
   }
 }
+
 html, body {
-  width: 100%;        /* 🚀 নিশ্চিত করবে viewport cross না করে */
+  width: 100%;
   max-width: 100%;
-  overflow-x: hidden; /* page আর কেটে যাবে না */
+  overflow-x: hidden;
+  height: 100%;
+  overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+  -webkit-touch-callout: none; /* Disable long-press menu */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* App-like touch interactions */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
 }

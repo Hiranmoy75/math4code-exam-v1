@@ -2,16 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetContent,
@@ -19,17 +10,22 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { motion } from "framer-motion";
-import { Search, SlidersHorizontal, Plus, RefreshCw, X } from "lucide-react";
 
-import { Pill, pageBg, cardGlass } from "@/components/question-bank/ui";
+import { pageBg, cardGlass } from "@/components/question-bank/ui";
 import EmptyState from "@/components/question-bank/EmptyState";
 import { QuestionTable } from "@/components/question-bank/table/QuestionTable";
 import { columns as makeColumns } from "@/components/question-bank/table/columns";
-import ImportQuestions from "./ImportQuestions";
+import { ImportQuestionsDialog } from "./ImportQuestions";
 
 import { useCurrentAdmin } from "@/hooks/admin/question-bank/useCurrentAdmin";
 import { useQuestions } from "@/hooks/admin/question-bank/useQuestions";
 import { useDeleteQuestion } from "@/hooks/admin/question-bank/useDeleteQuestion";
+
+// New components
+import { QuestionBankHeader } from "./components/QuestionBankHeader";
+import { SearchBar } from "./components/SearchBar";
+import { ActiveFilters } from "./components/ActiveFilters";
+import { FilterDropdown } from "./components/FilterDropdown";
 
 const QuestionForm = dynamic(
   () => import("@/components/question-bank/QuestionForm"),
@@ -38,8 +34,9 @@ const QuestionForm = dynamic(
 
 export default function QuestionBankPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
-  // ✅ Local filter state (No URL params)
+  // Local filter state
   const [filters, setFilters] = useState({
     page: 1,
     pageSize: 10,
@@ -52,7 +49,7 @@ export default function QuestionBankPage() {
   const { data: adminId } = useCurrentAdmin();
   const { mutateAsync: deleteQuestion } = useDeleteQuestion();
 
-  // ✅ Fetch questions with current filters
+  // Fetch questions with current filters
   const { data, isLoading, refetch } = useQuestions(filters);
 
   // Handlers
@@ -60,7 +57,7 @@ export default function QuestionBankPage() {
     setFilters((prev) => ({
       ...prev,
       [key]: value,
-      page: 1,
+      page: 1, // Reset to first page when filtering
     }));
   };
 
@@ -71,10 +68,10 @@ export default function QuestionBankPage() {
         key === "search"
           ? ""
           : key === "page"
-          ? 1
-          : key === "pageSize"
-          ? 10
-          : "all",
+            ? 1
+            : key === "pageSize"
+              ? 10
+              : "all",
     }));
   };
 
@@ -82,238 +79,75 @@ export default function QuestionBankPage() {
     setFilters((prev) => ({ ...prev, page: p }));
   };
 
+  const handleSearchChange = (value: string) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+  };
+
   const columns = makeColumns(async (id: string) => {
     await deleteQuestion(id);
   });
 
   return (
-    <div className={`space-y-6 ${pageBg}`}>
-      {adminId && <ImportQuestions adminId={adminId} />}
+    <div className={`min-h-screen space-y-6 p-4 md:p-6 ${pageBg}`}>
+      {/* Premium Header */}
+      <QuestionBankHeader
+        onCreateClick={() => setCreateOpen(true)}
+        onImportClick={() => setImportOpen(true)}
+        totalQuestions={data?.total ?? 0}
+      />
 
-      {/* Header */}
+      {/* Toolbar Card */}
       <motion.div
-        initial={{ opacity: 0, y: 6 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`${cardGlass} p-6 md:p-8 flex items-center justify-between`}
+        transition={{ duration: 0.4, delay: 0.1 }}
       >
-        <div>
-          <h1 className="text-3xl md:text-4xl font-semibold">
-            Welcome back, <span className="text-indigo-600">Hiranmoy</span>!
-          </h1>
-          <p className="text-slate-600 dark:text-slate-300 mt-2">
-            Keep up the great work! You’re progressing steadily towards your
-            goals.
-          </p>
-        </div>
-        <Button
-          className="bg-emerald-600 hover:bg-emerald-700"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Create Question
-        </Button>
-      </motion.div>
-
-      {/* Toolbar */}
-      <Card className={`${cardGlass}`}>
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            {/* Search */}
-            <div className="flex items-center gap-2 w-full md:w-96">
-              <div className="relative w-full">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  className="pl-8"
-                  placeholder="Search question text…"
+        <Card className={`${cardGlass} border-slate-200 dark:border-slate-800`}>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {/* Search and Filters Row */}
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <SearchBar
                   value={filters.search}
-                  onChange={(e) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      search: e.target.value,
-                    }))
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") refetch();
+                  onChange={handleSearchChange}
+                  onSearch={refetch}
+                  placeholder="Search question text..."
+                />
+
+                <FilterDropdown
+                  currentFilters={{
+                    subject: filters.subject,
+                    difficulty: filters.difficulty,
+                    qtype: filters.qtype,
                   }}
+                  onFilterChange={setFilter}
+                  onRefresh={refetch}
                 />
               </div>
-              <Button variant="outline" onClick={() => refetch()}>
-                Search
-              </Button>
+
+              {/* Active Filters Chips */}
+              <ActiveFilters filters={filters} onClearFilter={clearFilter} />
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-            {/* Filters */}
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">
-                    <SlidersHorizontal className="mr-2 h-4 w-4" />
-                    Filters
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  {/* Subject */}
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                    Subject
-                  </div>
-                  {["all", "math", "cs", "physics"].map((s) => (
-                    <DropdownMenuItem
-                      key={s}
-                      onClick={() => setFilter("subject", s)}
-                    >
-                      <Pill
-                        color={filters.subject === s ? "blue" : "gray"}
-                        className="mr-2"
-                      >
-                        {s.toUpperCase()}
-                      </Pill>
-                    </DropdownMenuItem>
-                  ))}
-                  <Separator className="my-2" />
-
-                  {/* Difficulty */}
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                    Difficulty
-                  </div>
-                  {["all", "easy", "medium", "hard"].map((d) => (
-                    <DropdownMenuItem
-                      key={d}
-                      onClick={() => setFilter("difficulty", d)}
-                    >
-                      <Pill
-                        color={
-                          d === "easy"
-                            ? "mint"
-                            : d === "medium"
-                            ? "amber"
-                            : d === "hard"
-                            ? "red"
-                            : "gray"
-                        }
-                        className="mr-2"
-                      >
-                        {d.toUpperCase()}
-                      </Pill>
-                    </DropdownMenuItem>
-                  ))}
-                  <Separator className="my-2" />
-
-                  {/* Type */}
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                    Type
-                  </div>
-                  {["all", "MCQ", "MSQ", "NAT"].map((t) => (
-                    <DropdownMenuItem
-                      key={t}
-                      onClick={() => setFilter("qtype", t)}
-                    >
-                      <Pill
-                        color={
-                          t === "MCQ"
-                            ? "violet"
-                            : t === "MSQ"
-                            ? "pink"
-                            : t === "NAT"
-                            ? "mint"
-                            : "gray"
-                        }
-                        className="mr-2"
-                      >
-                        {t}
-                      </Pill>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <Button variant="outline" onClick={() => refetch()}>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-            </div>
-          </div>
-
-          {/* Filter Chips with ✕ clear */}
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {filters.subject !== "all" && (
-              <Pill color="blue" className="flex items-center gap-2">
-                Subject: {filters.subject}
-                <button
-                  onClick={() => clearFilter("subject")}
-                  className="text-xs text-slate-400 hover:text-slate-700"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Pill>
-            )}
-
-            {filters.difficulty !== "all" && (
-              <Pill
-                color={
-                  filters.difficulty === "easy"
-                    ? "mint"
-                    : filters.difficulty === "medium"
-                    ? "amber"
-                    : "red"
-                }
-                className="flex items-center gap-2"
-              >
-                Difficulty: {filters.difficulty}
-                <button
-                  onClick={() => clearFilter("difficulty")}
-                  className="text-xs text-slate-400 hover:text-slate-700"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Pill>
-            )}
-
-            {filters.qtype !== "all" && (
-              <Pill
-                color={
-                  filters.qtype === "MCQ"
-                    ? "violet"
-                    : filters.qtype === "MSQ"
-                    ? "pink"
-                    : "mint"
-                }
-                className="flex items-center gap-2"
-              >
-                Type: {filters.qtype}
-                <button
-                  onClick={() => clearFilter("qtype")}
-                  className="text-xs text-slate-400 hover:text-slate-700"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Pill>
-            )}
-
-            {filters.search && (
-              <Pill color="gray" className="flex items-center gap-2">
-                Query: “{filters.search}”
-                <button
-                  onClick={() => clearFilter("search")}
-                  className="text-xs text-slate-400 hover:text-slate-700"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </Pill>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <QuestionTable
-        columns={columns}
-        data={data?.rows ?? []}
-        page={filters.page}
-        pages={data?.pages ?? 1}
-        onPageChange={onPageChange}
-        loading={isLoading}
-        empty={<EmptyState onCreate={() => setCreateOpen(true)} />}
-      />
+      {/* Questions Table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+      >
+        <QuestionTable
+          columns={columns}
+          data={data?.rows ?? []}
+          page={filters.page}
+          pages={data?.pages ?? 1}
+          onPageChange={onPageChange}
+          loading={isLoading}
+          empty={<EmptyState onCreate={() => setCreateOpen(true)} />}
+        />
+      </motion.div>
 
       {/* Create Question Sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
@@ -322,9 +156,9 @@ export default function QuestionBankPage() {
           className="w-full sm:max-w-2xl overflow-y-auto"
         >
           <SheetHeader>
-            <SheetTitle>Create a new Question</SheetTitle>
+            <SheetTitle>Create a New Question</SheetTitle>
           </SheetHeader>
-          <div className="mt-4">
+          <div className="mt-6">
             <QuestionForm
               onSuccess={() => {
                 setCreateOpen(false);
@@ -334,6 +168,16 @@ export default function QuestionBankPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Import Questions Dialog */}
+      {adminId && (
+        <ImportQuestionsDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          adminId={adminId}
+          onSuccess={refetch}
+        />
+      )}
     </div>
   );
 }
