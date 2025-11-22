@@ -1,120 +1,204 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   ArrowLeft,
-  ArrowRight,
   Clock,
   Flag,
   Menu,
   X,
-  FileText,
-  AlertCircle,
+  Loader2,
+  Save,
+  CheckCircle2,
+  AlertTriangle,
+  Maximize,
+  Minimize,
+  Calculator
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { renderWithLatex } from "@/lib/renderWithLatex"
-import { useQueryClient } from "@tanstack/react-query"
+import { useExamSession, useSubmitExam, useSaveAnswer, useUpdateTimer, Question, Section } from "@/hooks/student/useExamSession"
+import { ScientificCalculator } from "./components/ScientificCalculator"
 
-// ---------- TYPES ----------
-type Option = { id: string; option_text: string; is_correct?: boolean }
-type Question = {
-  id: string
-  question_text: string
-  question_type: "MCQ" | "MSQ" | "NAT"
-  marks: number
-  negative_marks: number
-  correct_answer?: string
-  options?: Option[]
-  section_id: string
+// Simple debounce implementation
+function useDebounce<T extends (...args: any[]) => any>(callback: T, delay: number) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  return useCallback((...args: Parameters<T>) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    timeoutRef.current = setTimeout(() => {
+      callback(...args)
+    }, delay)
+  }, [callback, delay])
 }
-type Section = { id: string; title: string; questions: Question[] }
-type Exam = { id: string; title: string; duration_minutes: number }
 
 export default function ExamPanelSections() {
   const supabase = createClient()
-  const queryClient = useQueryClient()
   const router = useRouter()
-  const { examId } = useParams()
+  const { examId } = useParams() as { examId: string }
+  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+  const isRetake = searchParams.get('retake') === 'true'
 
   const [userId, setUserId] = useState<string | null>(null)
-  const [exam, setExam] = useState<Exam | null>(null)
-  const [sections, setSections] = useState<Section[]>([])
+
+  // Auth check
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return router.push("/auth/login")
+      setUserId(user.id)
+    }
+    checkUser()
+  }, [router, supabase])
+
+  // React Query Hooks
+  const { data: sessionData, isLoading: isSessionLoading, error: sessionError } = useExamSession(examId, userId, isRetake)
+  const { mutate: submitExam, isPending: isSubmitting } = useSubmitExam()
+  const { mutate: saveAnswer, isPending: isSaving } = useSaveAnswer()
+  const { mutate: updateTimer } = useUpdateTimer()
+
+  // Local State
   const [responses, setResponses] = useState<Record<string, any>>({})
   const [marked, setMarked] = useState<Record<string, boolean>>({})
   const [visited, setVisited] = useState<Record<string, boolean>>({})
   const [activeQuestionIdx, setActiveQuestionIdx] = useState(0)
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [paletteOpenMobile, setPaletteOpenMobile] = useState(false)
-  const [attemptId, setAttemptId] = useState<string | null>(null)
+  const [isTimerActive, setIsTimerActive] = useState(false)
+  const [showCalculator, setShowCalculator] = useState(false)
+  const [isFullScreen, setIsFullScreen] = useState(false)
 
   const timerRef = useRef<number | null>(null)
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const secondsLeftRef = useRef(secondsLeft)
+  const hasInitialized = useRef(false)
 
-  // ---------- FETCH EXAM DATA ----------
+  // Keep secondsLeftRef in sync
   useEffect(() => {
-    async function loadExam() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return router.push("/auth/login")
-      setUserId(user.id)
+    secondsLeftRef.current = secondsLeft
+  }, [secondsLeft])
 
-      const { data: examData } = await supabase.from("exams").select("*").eq("id", examId).single()
-      if (!examData) return toast.error("Exam not found")
+  // Sync Session Data to Local State (runs only once when data loads)
+  useEffect(() => {
+    if (!sessionData || hasInitialized.current) return
 
-      setExam(examData)
-      setSecondsLeft(examData.duration_minutes * 60)
+    console.log('🔄 Initializing exam session...', {
+      hasAttempt: !!sessionData.attempt,
+      attemptId: sessionData.attempt?.id,
+      previousResponsesCount: Object.keys(sessionData.previousResponses || {}).length,
+      totalTimeSpent: sessionData.attempt?.total_time_spent
+    })
 
-      const { data: sectionsData } = await supabase
-        .from("sections")
-        .select("*, questions(*, options(*))")
-        .eq("exam_id", examId)
-        .order("section_order")
+    // Initialize responses from previous session if available
+    if (sessionData.previousResponses && Object.keys(sessionData.previousResponses).length > 0) {
+      console.log('📝 Loading previous responses:', sessionData.previousResponses)
+      setResponses(sessionData.previousResponses)
 
-      if (sectionsData) setSections(sectionsData)
-
-      const { data: attempts } = await supabase
-        .from("exam_attempts")
-        .select("*")
-        .eq("exam_id", examId)
-        .eq("student_id", user.id)
-        .order("created_at", { ascending: false })
-
-      if (attempts && attempts.length > 0 && attempts[0].status != "submitted") {
-        setAttemptId(attempts[0].id)
-      } else {
-        const { data: newAttempt } = await supabase
-          .from("exam_attempts")
-          .insert({ exam_id: examId, student_id: user.id, status: "in_progress" })
-          .select()
-          .single()
-        setAttemptId(newAttempt?.id)
-      }
+      // Also mark them as visited
+      const newVisited: Record<string, boolean> = {}
+      Object.keys(sessionData.previousResponses).forEach(k => newVisited[k] = true)
+      setVisited(newVisited)
+      console.log('✅ Loaded', Object.keys(sessionData.previousResponses).length, 'previous responses')
+    } else {
+      console.log('ℹ️ No previous responses found')
     }
 
-    loadExam()
-  }, [examId])
+    // Initialize Timer - Calculate remaining time: Duration - Time Spent
+    const totalDuration = sessionData.exam.duration_minutes * 60
+    const timeSpent = sessionData.attempt.total_time_spent || 0
+    const remaining = Math.max(0, totalDuration - timeSpent)
 
-  // ---------- TIMER ----------
+    console.log('⏱️ Timer Initialization:', {
+      examDuration: sessionData.exam.duration_minutes,
+      totalDurationSeconds: totalDuration,
+      timeSpentSeconds: timeSpent,
+      remainingSeconds: remaining,
+      remainingMinutes: (remaining / 60).toFixed(2)
+    })
+
+    setSecondsLeft(remaining)
+    setIsTimerActive(true)
+    hasInitialized.current = true
+
+    console.log('✅ Exam session initialized successfully')
+  }, [sessionData])
+
+  // Timer Logic
   useEffect(() => {
-    if (!secondsLeft) return
+    if (!isTimerActive || secondsLeft <= 0) return
+
     timerRef.current = window.setInterval(() => {
       setSecondsLeft((s) => {
         if (s <= 1) {
-          clearInterval(timerRef.current!)
-          handleSubmit()
+          if (timerRef.current) clearInterval(timerRef.current)
+          handleAutoSubmit()
           return 0
         }
         return s - 1
       })
     }, 1000)
-    return () => clearInterval(timerRef.current!)
-  }, [secondsLeft])
 
-  // ---------- HELPER FUNCTIONS ----------
-  const allQuestions = sections.flatMap((s) => s.questions)
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [isTimerActive])
+
+  // Periodic Timer Save (Every 30 seconds)
+  useEffect(() => {
+    if (!sessionData?.attempt?.id || !isTimerActive) return
+
+    saveTimerRef.current = setInterval(() => {
+      const totalDuration = sessionData.exam.duration_minutes * 60
+      const currentSecondsLeft = secondsLeftRef.current
+      const timeSpent = totalDuration - currentSecondsLeft
+
+      console.log('💾 Auto-saving timer (30s interval):', {
+        attemptId: sessionData.attempt.id,
+        totalDuration,
+        currentSecondsLeft,
+        timeSpent,
+        timeSpentMinutes: (timeSpent / 60).toFixed(2)
+      })
+
+      if (timeSpent > 0) {
+        updateTimer({ attemptId: sessionData.attempt.id, timeSpent })
+      }
+    }, 30000)
+
+    return () => {
+      if (saveTimerRef.current) clearInterval(saveTimerRef.current)
+    }
+  }, [sessionData, isTimerActive, updateTimer])
+
+  // Save timer on unmount/page hide
+  useEffect(() => {
+    const handleUnload = () => {
+      if (sessionData?.attempt?.id) {
+        const totalDuration = sessionData.exam.duration_minutes * 60
+        const timeSpent = totalDuration - secondsLeftRef.current
+        if (timeSpent > 0) {
+          updateTimer({ attemptId: sessionData.attempt.id, timeSpent })
+        }
+      }
+    }
+    window.addEventListener("beforeunload", handleUnload)
+    return () => window.removeEventListener("beforeunload", handleUnload)
+  }, [sessionData, updateTimer])
+
+
+  // Debounced Save for NAT
+  const debouncedSave = useDebounce((qid: string, ans: any) => {
+    if (sessionData?.attempt?.id) {
+      saveAnswer({ attemptId: sessionData.attempt.id, questionId: qid, answer: ans })
+    }
+  }, 1000)
+
+  // Helper Functions
+  const allQuestions = sessionData?.sections.flatMap((s) => s.questions) || []
   const currentQuestion = allQuestions[activeQuestionIdx]
 
   const formatTime = (s: number) => {
@@ -124,9 +208,29 @@ export default function ExamPanelSections() {
     return h > 0 ? `${h}:${m}:${sec}` : `${m}:${sec}`
   }
 
-  const saveResponse = (qid: string, ans: any) => {
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullScreen(true))
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().then(() => setIsFullScreen(false))
+      }
+    }
+  }
+
+  const handleSaveResponse = (qid: string, ans: any) => {
     setResponses((r) => ({ ...r, [qid]: ans }))
     setVisited((v) => ({ ...v, [qid]: true }))
+
+    // Trigger background save
+    if (sessionData?.attempt?.id) {
+      const qType = allQuestions.find(q => q.id === qid)?.question_type
+      if (qType === "NAT") {
+        debouncedSave(qid, ans)
+      } else {
+        saveAnswer({ attemptId: sessionData.attempt.id, questionId: qid, answer: ans })
+      }
+    }
   }
 
   const nextQuestion = () => {
@@ -143,226 +247,147 @@ export default function ExamPanelSections() {
     return a ? "answered" : "visited"
   }
 
-  // ---------- SUBMIT ----------
-   // ---- SUBMIT ----
-const handleSubmit = async () => {
-  if (!attemptId) return
-
-  setIsSubmitting(true)
-  setShowSubmitDialog(false)
-
-  try {
-    // 1️⃣ Save all responses
-    const entries = Object.entries(responses).map(([qid, ans]) => ({
-      attempt_id: attemptId,
-      question_id: qid,
-      student_answer: Array.isArray(ans) ? JSON.stringify(ans) : ans,
-      updated_at: new Date().toISOString(),
-    }))
-
-    if (entries.length > 0) {
-      const { error: respError } = await supabase.from("responses").upsert(entries, {
-        onConflict: "attempt_id,question_id",
-      })
-      if (respError) throw respError
-    }
-
-    // 2️⃣ Mark exam attempt as submitted
-    const { error: updateError } = await supabase
-      .from("exam_attempts")
-      .update({ status: "submitted" })
-      .eq("id", attemptId)
-    if (updateError) throw updateError
-
-    // 3️⃣ Load all attempted questions
-    const { data: questions, error: qError } = await supabase
-      .from("questions")
-      .select("*, options(*)")
-      .in("id", Object.keys(responses))
-    if (qError || !questions) throw qError || new Error("No questions found")
-
-      //find total marks of the exam 
-
-     const { data: examsmarks, error: eError } = await supabase
-          .from("exams")
-          .select("total_marks")
-          .eq("id", examId)
-
-if (eError || !examsmarks?.length) throw new Error("Exam not found")
-
-  console.log("exammarks",examsmarks)
-
-// ✅ Calculate total marks correctly
-const totalMarks = examsmarks.reduce((sum, e) => sum + (e.total_marks ?? 0), 0)
-  console.log("exammarks",totalMarks)
- 
-
-    // 4️⃣ Load all related sections
-    const sectionIds = Array.from(new Set(questions.map((q: any) => q.section_id)))
-    const { data: sections, error: sError } = await supabase
-      .from("sections")
-      .select("*")
-      .in("id", sectionIds)
-    if (sError || !sections) throw sError || new Error("No sections found")
-
-    // 5️⃣ Evaluate responses with negative marking
- 
-    let obtainedMarks = 0
-    let correct = 0
-    let wrong = 0
-    let unanswered = 0
-
-    const evaluateQuestion = (q: any) => {
-      const ans = responses[q.id]
-      const correctMarks = q.marks ?? 0
-      const negativeMarks = q.negative_marks ?? 0
-
-      // ❌ Not Attempted
-      if (!ans || (Array.isArray(ans) && ans.length === 0)) {
-        unanswered++
-        return 0
-      }
-
-      let isCorrect = false
-      if (q.question_type === "NAT") {
-        isCorrect = Number(ans) === Number(q.correct_answer)
-      } else if (q.question_type === "MCQ") {
-        const correctOpt = q.options.find((o: any) => o.is_correct)?.id
-        isCorrect = ans === correctOpt
-      } else if (q.question_type === "MSQ") {
-        const correctIds = q.options.filter((o: any) => o.is_correct).map((o: any) => o.id).sort()
-        const ansIds = (ans as string[]).sort()
-        isCorrect = correctIds.length === ansIds.length && correctIds.every((x: string, i: number) => x === ansIds[i])
-      }
-
-      // ✅ Correct
-      if (isCorrect) {
-        correct++
-        return correctMarks
-      }
-      // ❌ Wrong
-      wrong++
-      return -Math.abs(negativeMarks)
-    }
-
-    questions.forEach((q: any) => {
-      obtainedMarks += evaluateQuestion(q)
-    })
-
-    const percentage = totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0
-
-    // 6️⃣ Insert into results
-    const { data: resultRow, error: resultError } = await supabase
-      .from("results")
-      .insert([
-        {
-          attempt_id: attemptId,
-          total_marks: totalMarks,
-          obtained_marks: obtainedMarks.toFixed(2),
-          percentage: percentage.toFixed(2),
-        },
-      ])
-      .select()
-      .single()
-    if (resultError || !resultRow) throw resultError || new Error("Failed to insert result")
-    const resultId = resultRow.id
-
-    // 7️⃣ Insert section results (also consider negative marks)
-    for (const section of sections) {
-      const sectionQuestions = questions.filter((q: any) => q.section_id === section.id)
-      let sectionTotal = 0,
-        sectionObtained = 0,
-        sectionCorrect = 0,
-        sectionWrong = 0,
-        sectionUnanswered = 0
-
-      sectionQuestions.forEach((q: any) => {
-        const ans = responses[q.id]
-        const correctMarks = q.marks ?? 0
-        const negativeMarks = q.negative_marks ?? 0
-
-        sectionTotal += q.marks
-
-        if (!ans || (Array.isArray(ans) && ans.length === 0)) {
-          sectionUnanswered++
-          return
-        }
-
-        let isCorrect = false
-        if (q.question_type === "NAT") {
-          isCorrect = Number(ans) === Number(q.correct_answer)
-        } else if (q.question_type === "MCQ") {
-          const correctOpt = q.options.find((o: any) => o.is_correct)?.id
-          isCorrect = ans === correctOpt
-        } else if (q.question_type === "MSQ") {
-          const correctIds = q.options.filter((o: any) => o.is_correct).map((o: any) => o.id).sort()
-          const ansIds = (ans as string[]).sort()
-          isCorrect = correctIds.length === ansIds.length && correctIds.every((x: string, i: number) => x === ansIds[i])
-        }
-
-        if (isCorrect) {
-          sectionCorrect++
-          sectionObtained += correctMarks
-        } else {
-          sectionWrong++
-          sectionObtained -= Math.abs(negativeMarks)
-        }
-      })
-
-      const { error: secError } = await supabase.from("section_results").insert({
-        result_id: resultId,
-        section_id: section.id,
-        total_marks: sectionTotal,
-        obtained_marks: sectionObtained,
-        correct_answers: sectionCorrect,
-        wrong_answers: sectionWrong,
-        unanswered: sectionUnanswered,
-      })
-      if (secError) throw secError
-    }
-     // ✅ 8️⃣ Trigger React Query Refetch
-    queryClient.invalidateQueries({ queryKey: ["test-series-details"] })
-
-    toast.success("✅ Exam submitted successfully with negative marking!")
-    router.push(`/student/results/${resultRow.id}?attemptId=${attemptId}`)
-  } catch (err) {
-    console.error("❌ Submission Error:", err)
-    toast.error("Failed to submit exam. Try again.")
-  } finally {
-    setIsSubmitting(false)
+  const handleAutoSubmit = () => {
+    toast.info("Time's up! Submitting exam...")
+    performSubmit()
   }
-}
 
-  // ---------- LOADING ----------
-  if (!exam || !sections.length)
+  const performSubmit = () => {
+    if (!sessionData?.attempt?.id || !sessionData?.exam) return
+
+    submitExam({
+      attemptId: sessionData.attempt.id,
+      examId: sessionData.exam.id,
+      responses: responses,
+      sections: sessionData.sections,
+      totalMarks: sessionData.exam.total_marks || 0
+    }, {
+      onSuccess: (result) => {
+        router.push(`/student/results/${result.id}?attemptId=${sessionData.attempt.id}`)
+      }
+    })
+  }
+
+  const handlePauseAndExit = () => {
+    if (sessionData?.attempt?.id) {
+      const totalDuration = sessionData.exam.duration_minutes * 60
+      const timeSpent = totalDuration - secondsLeft
+
+      console.log('🚪 Pause & Exit - Saving timer:', {
+        attemptId: sessionData.attempt.id,
+        examDuration: sessionData.exam.duration_minutes,
+        totalDuration,
+        secondsLeft,
+        timeSpent,
+        timeSpentMinutes: (timeSpent / 60).toFixed(2),
+        remainingMinutes: (secondsLeft / 60).toFixed(2)
+      })
+
+      updateTimer({
+        attemptId: sessionData.attempt.id,
+        timeSpent
+      })
+
+      // Give a small delay to ensure the mutation completes
+      setTimeout(() => {
+        console.log('✅ Redirecting to dashboard...')
+        router.push("/student/dashboard")
+      }, 500)
+    } else {
+      console.log('⚠️ No attempt ID found, redirecting without saving')
+      router.push("/student/dashboard")
+    }
+  }
+
+  // Loading & Error States
+  if (isSessionLoading) {
     return (
       <div className="flex items-center justify-center h-[70vh] text-slate-500">
-        Loading Exam Interface...
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+          <p>Loading Exam Interface...</p>
+        </div>
       </div>
     )
+  }
 
-  // ---------- RENDER ----------
+  if (sessionError) {
+    const errorMessage = (sessionError as Error).message
+    const isMaxAttemptsError = errorMessage.includes("maximum number of attempts")
+    const isAlreadySubmittedError = errorMessage.includes("already been submitted")
+
+    return (
+      <div className="flex items-center justify-center h-[70vh]">
+        <div className="max-w-md mx-auto">
+          <div className={`flex flex-col items-center gap-4 p-8 rounded-2xl border ${isMaxAttemptsError || isAlreadySubmittedError
+            ? 'bg-amber-50 border-amber-200'
+            : 'bg-rose-50 border-rose-200'
+            }`}>
+            {isMaxAttemptsError ? (
+              <>
+                <AlertTriangle className="w-16 h-16 text-amber-500" />
+                <h2 className="text-2xl font-bold text-amber-900">Maximum Attempts Reached</h2>
+                <p className="text-center text-amber-700">
+                  You have used all available attempts for this exam. Please contact your instructor if you need additional attempts.
+                </p>
+              </>
+            ) : isAlreadySubmittedError ? (
+              <>
+                <CheckCircle2 className="w-16 h-16 text-indigo-500" />
+                <h2 className="text-2xl font-bold text-indigo-900">Exam Already Submitted</h2>
+                <p className="text-center text-indigo-700">
+                  This exam has already been submitted. To retake this exam, please go back to the test series page and click "Retake Exam".
+                </p>
+              </>
+            ) : (
+              <>
+                <Flag className="w-16 h-16 text-rose-500" />
+                <h2 className="text-2xl font-bold text-rose-900">Failed to Load Exam</h2>
+                <p className="text-center text-rose-700">{errorMessage}</p>
+              </>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => router.back()}
+                className="px-6 py-3 bg-white border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition-colors"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => router.push("/student/dashboard")}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+              >
+                Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!sessionData) return null
+
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-slate-50 text-slate-800">
       {/* LEFT PANEL */}
-      <div className="p-4 md:p-6">
+      <div className="p-4 md:p-6 relative">
         {/* HEADER NAV */}
-        <div className="sticky top-0 z-30 bg-white border-b border-slate-200 py-3 px-4 rounded-xl flex flex-wrap items-center justify-between gap-3">
+        <div className="sticky top-0 z-30 bg-white border-b border-slate-200 py-3 px-4 rounded-xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
           <div className="flex flex-col">
-            <h2 className="text-lg font-bold text-indigo-700">{exam.title}</h2>
-            <div className="flex gap-2 mt-2">
-              {sections.map((s, i) => {
-                const startIdx = sections.slice(0, i).reduce((a, b) => a + b.questions.length, 0)
+            <h2 className="text-lg font-bold text-indigo-700">{sessionData.exam.title}</h2>
+            <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+              {sessionData.sections.map((s, i) => {
+                const startIdx = sessionData.sections.slice(0, i).reduce((a, b) => a + b.questions.length, 0)
+                const isActive = activeQuestionIdx >= startIdx && activeQuestionIdx < startIdx + s.questions.length
                 return (
                   <button
                     key={s.id}
                     onClick={() => setActiveQuestionIdx(startIdx)}
-                    className={`px-3 py-1 text-xs rounded-md ${
-                      activeQuestionIdx >= startIdx &&
-                      activeQuestionIdx < startIdx + s.questions.length
-                        ? "bg-indigo-600 text-white"
-                        : "bg-slate-200 text-slate-700"
-                    }`}
+                    className={`px-3 py-1 text-xs rounded-md whitespace-nowrap transition-colors ${isActive
+                      ? "bg-indigo-600 text-white shadow-md"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
                   >
                     {s.title}
                   </button>
@@ -372,222 +397,315 @@ const totalMarks = examsmarks.reduce((sum, e) => sum + (e.total_marks ?? 0), 0)
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-              <Clock className="w-4 h-4 text-emerald-600" />
-              <div className="text-sm font-semibold">{formatTime(secondsLeft)}</div>
+            {/* Tools */}
+            <div className="flex items-center gap-1 mr-2 border-r border-slate-200 pr-3">
+              <button
+                onClick={() => setShowCalculator(!showCalculator)}
+                className={`p-2 rounded-lg transition-colors ${showCalculator ? "bg-indigo-100 text-indigo-600" : "text-slate-500 hover:bg-slate-100"}`}
+                title="Scientific Calculator"
+              >
+                <Calculator className="w-5 h-5" />
+              </button>
+              <button
+                onClick={toggleFullScreen}
+                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+                title="Toggle Full Screen"
+              >
+                {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {/* Saving Indicator */}
+            <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 font-medium">
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-3 h-3" />
+                  Saved
+                </>
+              )}
+            </div>
+
+            <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${secondsLeft < 300 ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
+              <Clock className={`w-4 h-4 ${secondsLeft < 300 ? 'text-rose-600' : 'text-emerald-600'}`} />
+              <div className="text-sm font-semibold tabular-nums">{formatTime(secondsLeft)}</div>
             </div>
             <button
               onClick={() => setShowSubmitDialog(true)}
-              className="hidden sm:block bg-rose-500 text-white px-3 py-2 rounded-md text-sm"
+              className="hidden sm:block bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
             >
               Submit
             </button>
             <button
               onClick={() => setPaletteOpenMobile(true)}
-              className="block sm:hidden bg-indigo-600 text-white px-3 py-2 rounded-md text-sm"
+              className="block lg:hidden bg-indigo-600 text-white px-3 py-2 rounded-md text-sm"
             >
               <Menu className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* QUESTION CARD */}
-        <motion.div
-          key={currentQuestion?.id}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.25 }}
-          className="mt-5 p-5 bg-white rounded-2xl shadow border"
-        >
-          <div className="text-sm text-slate-500 mb-2">
-            Question {activeQuestionIdx + 1} • Marks: {currentQuestion?.marks} | Negative:{" "}
-            {currentQuestion?.negative_marks}
-          </div>
-          <h3 className="text-base md:text-lg font-semibold mb-4">
-            {renderWithLatex(currentQuestion?.question_text)}
-          </h3>
-
-          {/* OPTIONS */}
-          {currentQuestion?.question_type === "MCQ" &&
-            currentQuestion?.options?.map((opt, idx) => {
-              const chosen = responses[currentQuestion.id] === opt.id
-              const optionLabel = String.fromCharCode(65 + idx) // A, B, C, D
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => saveResponse(currentQuestion.id, opt.id)}
-                  className={`w-full text-left p-3 mb-2 rounded-lg border flex items-center gap-3 ${
-                    chosen ? "bg-indigo-50 border-indigo-400" : "bg-white border-slate-200"
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                      chosen
-                        ? "bg-indigo-600 text-white"
-                        : "border border-slate-300 text-slate-600"
-                    }`}
-                  >
-                    {optionLabel}
-                  </div>
-                  <span>{renderWithLatex(opt.option_text)}</span>
-                </button>
-              )
-            })}
-
-          {currentQuestion?.question_type === "MSQ" &&
-            currentQuestion?.options?.map((opt, idx) => {
-              const current = (responses[currentQuestion.id] || []) as string[]
-              const checked = current.includes(opt.id)
-              const optionLabel = String.fromCharCode(65 + idx)
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => {
-                    const next = checked
-                      ? current.filter((x) => x !== opt.id)
-                      : [...current, opt.id]
-                    saveResponse(currentQuestion.id, next)
-                  }}
-                  className={`w-full text-left p-3 mb-2 rounded-lg border flex items-center gap-3 ${
-                    checked ? "bg-yellow-50 border-yellow-400" : "bg-white border-slate-200"
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded flex items-center justify-center text-sm font-bold ${
-                      checked ? "bg-yellow-500 text-white" : "border border-slate-300"
-                    }`}
-                  >
-                    {optionLabel}
-                  </div>
-                  <span>{renderWithLatex(opt.option_text)}</span>
-                </button>
-              )
-            })}
-
-          {currentQuestion?.question_type === "NAT" && (
-            <input
-              type="number"
-              className="w-full p-3 rounded-lg border border-slate-200 bg-white"
-              placeholder="Enter numeric answer"
-              value={responses[currentQuestion.id] || ""}
-              onChange={(e) => saveResponse(currentQuestion.id, e.target.value)}
-            />
+        {/* CALCULATOR OVERLAY */}
+        <AnimatePresence>
+          {showCalculator && (
+            <ScientificCalculator onClose={() => setShowCalculator(false)} />
           )}
+        </AnimatePresence>
 
-          {/* ACTION BUTTONS */}
-          <div className="mt-6 flex flex-wrap justify-between items-center gap-3">
-            <div className="flex gap-2">
-              <button
-                onClick={prevQuestion}
-                disabled={activeQuestionIdx === 0}
-                className="px-4 py-2 border rounded-md flex items-center gap-2 disabled:opacity-50"
-              >
-                <ArrowLeft className="w-4 h-4" /> Previous
-              </button>
-              <button
-                onClick={() => saveResponse(currentQuestion.id, null)}
-                className="px-4 py-2 border rounded-md"
-              >
-                Clear Response
-              </button>
-              <button
-                onClick={() => {
-                  setMarked((m) => ({ ...m, [currentQuestion.id]: !m[currentQuestion.id] }))
-                  nextQuestion()
-                }}
-                className={`px-4 py-2 rounded-md ${
-                  marked[currentQuestion.id] ? "bg-yellow-500 text-white" : "border"
-                }`}
-              >
-                <Flag className="w-4 h-4" /> Mark & Next
-              </button>
+        {/* QUESTION CARD */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQuestion?.id}
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+            className="mt-5 p-6 bg-white rounded-2xl shadow-sm border border-slate-200"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div className="text-sm font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                Question {activeQuestionIdx + 1}
+              </div>
+              <div className="text-sm text-slate-500">
+                Marks: <span className="font-semibold text-emerald-600">+{currentQuestion?.marks}</span> |
+                Negative: <span className="font-semibold text-rose-500">-{currentQuestion?.negative_marks}</span>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={nextQuestion}
-                className="px-4 py-2 rounded-md bg-indigo-600 text-white"
-              >
-                Save & Next
-              </button>
-              <button
-                onClick={() => setShowSubmitDialog(true)}
-                className="px-4 py-2 rounded-md bg-rose-500 text-white"
-              >
-                Submit
-              </button>
+
+            <div className="text-base md:text-lg font-medium mb-6 leading-relaxed text-slate-800">
+              {renderWithLatex(currentQuestion?.question_text)}
             </div>
-          </div>
-        </motion.div>
+
+            {/* OPTIONS */}
+            <div className="space-y-3">
+              {currentQuestion?.question_type === "MCQ" &&
+                currentQuestion?.options?.map((opt, idx) => {
+                  const chosen = responses[currentQuestion.id] === opt.id
+                  const optionLabel = String.fromCharCode(65 + idx)
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleSaveResponse(currentQuestion.id, opt.id)}
+                      className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center gap-4 group ${chosen
+                        ? "bg-indigo-50 border-indigo-500 shadow-sm ring-1 ring-indigo-500"
+                        : "bg-white border-slate-200 hover:border-indigo-300 hover:bg-slate-50"
+                        }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold transition-colors ${chosen
+                          ? "bg-indigo-600 text-white"
+                          : "border border-slate-300 text-slate-500 group-hover:border-indigo-400 group-hover:text-indigo-600"
+                          }`}
+                      >
+                        {optionLabel}
+                      </div>
+                      <span className="text-slate-700 group-hover:text-slate-900">{renderWithLatex(opt.option_text)}</span>
+                    </button>
+                  )
+                })}
+
+              {currentQuestion?.question_type === "MSQ" &&
+                currentQuestion?.options?.map((opt, idx) => {
+                  const current = (responses[currentQuestion.id] || []) as string[]
+                  const checked = current.includes(opt.id)
+                  const optionLabel = String.fromCharCode(65 + idx)
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        const next = checked
+                          ? current.filter((x) => x !== opt.id)
+                          : [...current, opt.id]
+                        handleSaveResponse(currentQuestion.id, next)
+                      }}
+                      className={`w-full text-left p-4 rounded-xl border transition-all duration-200 flex items-center gap-4 group ${checked
+                        ? "bg-amber-50 border-amber-500 shadow-sm ring-1 ring-amber-500"
+                        : "bg-white border-slate-200 hover:border-amber-300 hover:bg-slate-50"
+                        }`}
+                    >
+                      <div
+                        className={`w-6 h-6 rounded flex-shrink-0 flex items-center justify-center text-sm font-bold transition-colors ${checked ? "bg-amber-500 text-white" : "border border-slate-300 text-slate-500 group-hover:border-amber-400"
+                          }`}
+                      >
+                        {optionLabel}
+                      </div>
+                      <span className="text-slate-700 group-hover:text-slate-900">{renderWithLatex(opt.option_text)}</span>
+                    </button>
+                  )
+                })}
+
+              {currentQuestion?.question_type === "NAT" && (
+                <div className="mt-2">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Your Answer:</label>
+                  <input
+                    type="number"
+                    className="w-full max-w-md p-3 rounded-lg border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                    placeholder="Enter numeric value..."
+                    value={responses[currentQuestion.id] || ""}
+                    onChange={(e) => handleSaveResponse(currentQuestion.id, e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* ACTION BUTTONS */}
+            <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap justify-between items-center gap-3">
+              <div className="flex gap-2">
+                <button
+                  onClick={prevQuestion}
+                  disabled={activeQuestionIdx === 0}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Previous
+                </button>
+                <button
+                  onClick={() => handleSaveResponse(currentQuestion.id, null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={() => {
+                    setMarked((m) => ({ ...m, [currentQuestion.id]: !m[currentQuestion.id] }))
+                    nextQuestion()
+                  }}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${marked[currentQuestion.id]
+                    ? "bg-amber-500 text-white hover:bg-amber-600"
+                    : "border border-amber-200 text-amber-600 hover:bg-amber-50"
+                    }`}
+                >
+                  <Flag className="w-4 h-4" /> {marked[currentQuestion.id] ? "Marked" : "Mark for Review"}
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={nextQuestion}
+                  className="px-6 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-sm transition-colors"
+                >
+                  Save & Next
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* RIGHT PALETTE */}
-      <div className="hidden lg:block bg-white border-l border-slate-200 p-5">
-        <h4 className="font-semibold text-indigo-700 mb-3">Question Palette</h4>
-        <div className="grid grid-cols-5 gap-2">
-          {allQuestions.map((q, i) => {
-            const status = qStatus(q)
-            const cls =
-              status === "answered"
-                ? "bg-green-500 text-white"
-                : marked[q.id]
-                ? "bg-yellow-400 text-white"
-                : status === "visited"
-                ? "bg-indigo-100 text-indigo-700"
-                : "bg-slate-200 text-slate-700"
-            return (
-              <button
-                key={q.id}
-                onClick={() => setActiveQuestionIdx(i)}
-                className={`py-2 rounded-md text-xs font-medium ${cls}`}
-              >
-                {i + 1}
-              </button>
-            )
-          })}
+      {/* RIGHT PALETTE (Desktop) */}
+      <div className="hidden lg:flex flex-col bg-white border-l border-slate-200 h-screen sticky top-0 overflow-hidden">
+        <div className="p-5 border-b border-slate-100">
+          <h4 className="font-bold text-slate-800">Question Palette</h4>
+          <div className="flex gap-4 mt-4 text-xs text-slate-500">
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-green-500"></div> Answered</div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-400"></div> Marked</div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-indigo-100 border border-indigo-200"></div> Visited</div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid grid-cols-5 gap-2">
+            {allQuestions.map((q, i) => {
+              const status = qStatus(q)
+              const isMarked = marked[q.id]
+              let cls = "bg-slate-100 text-slate-600 hover:bg-slate-200"
+
+              if (status === "answered") cls = "bg-green-500 text-white shadow-sm"
+              else if (isMarked) cls = "bg-amber-400 text-white shadow-sm"
+              else if (status === "visited") cls = "bg-indigo-50 text-indigo-700 border border-indigo-200"
+
+              if (activeQuestionIdx === i) cls += " ring-2 ring-offset-1 ring-indigo-600"
+
+              return (
+                <button
+                  key={q.id}
+                  onClick={() => setActiveQuestionIdx(i)}
+                  className={`h-10 w-full rounded-lg text-sm font-semibold transition-all ${cls}`}
+                >
+                  {i + 1}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="p-5 border-t border-slate-100 bg-slate-50">
+          <button
+            onClick={() => setShowSubmitDialog(true)}
+            className="w-full bg-rose-500 hover:bg-rose-600 text-white py-3 rounded-xl font-bold shadow-sm transition-colors"
+          >
+            Submit Exam
+          </button>
         </div>
       </div>
 
       {/* MOBILE PALETTE DRAWER */}
       <AnimatePresence>
         {paletteOpenMobile && (
-          <motion.div
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            className="fixed inset-y-0 right-0 z-50 w-80 bg-white shadow-xl border-l border-slate-200"
-          >
-            <div className="p-4 flex items-center justify-between border-b">
-              <h4 className="font-semibold text-indigo-700">Question Palette</h4>
-              <button onClick={() => setPaletteOpenMobile(false)}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 grid grid-cols-5 gap-2">
-              {allQuestions.map((q, i) => {
-                const status = qStatus(q)
-                const cls =
-                  status === "answered"
-                    ? "bg-green-500 text-white"
-                    : marked[q.id]
-                    ? "bg-yellow-400 text-white"
-                    : status === "visited"
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "bg-slate-200 text-slate-700"
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => {
-                      setActiveQuestionIdx(i)
-                      setPaletteOpenMobile(false)
-                    }}
-                    className={`py-2 rounded-md text-xs font-medium ${cls}`}
-                  >
-                    {i + 1}
-                  </button>
-                )
-              })}
-            </div>
-          </motion.div>
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPaletteOpenMobile(false)}
+              className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 right-0 z-50 w-80 bg-white shadow-2xl border-l border-slate-200 lg:hidden flex flex-col"
+            >
+              <div className="p-4 flex items-center justify-between border-b">
+                <h4 className="font-bold text-slate-800">Question Palette</h4>
+                <button onClick={() => setPaletteOpenMobile(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <div className="grid grid-cols-5 gap-2">
+                  {allQuestions.map((q, i) => {
+                    const status = qStatus(q)
+                    const isMarked = marked[q.id]
+                    let cls = "bg-slate-100 text-slate-600"
+
+                    if (status === "answered") cls = "bg-green-500 text-white"
+                    else if (isMarked) cls = "bg-amber-400 text-white"
+                    else if (status === "visited") cls = "bg-indigo-50 text-indigo-700 border border-indigo-200"
+
+                    if (activeQuestionIdx === i) cls += " ring-2 ring-offset-1 ring-indigo-600"
+
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => {
+                          setActiveQuestionIdx(i)
+                          setPaletteOpenMobile(false)
+                        }}
+                        className={`h-10 w-full rounded-lg text-sm font-semibold transition-all ${cls}`}
+                      >
+                        {i + 1}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="p-4 border-t">
+                <button
+                  onClick={() => {
+                    setPaletteOpenMobile(false)
+                    setShowSubmitDialog(true)
+                  }}
+                  className="w-full bg-rose-500 text-white py-3 rounded-xl font-bold"
+                >
+                  Submit Exam
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -598,29 +716,89 @@ const totalMarks = examsmarks.reduce((sum, e) => sum + (e.total_marks ?? 0), 0)
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           >
-            <div className="bg-white p-6 rounded-xl shadow-xl max-w-md w-full">
-              <h3 className="text-lg font-semibold">Submit Exam?</h3>
-              <p className="text-sm text-slate-600 mt-2">
-                Once submitted, you cannot change your answers.
-              </p>
-              <div className="mt-5 flex justify-end gap-3">
-                <button
-                  onClick={() => setShowSubmitDialog(false)}
-                  className="border px-4 py-2 rounded-md"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={isSubmitting}
-                  onClick={handleSubmit}
-                  className="bg-rose-500 text-white px-4 py-2 rounded-md"
-                >
-                  {isSubmitting ? "Submitting..." : "Yes, Submit"}
-                </button>
-              </div>
-            </div>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+            >
+              {isSubmitting ? (
+                <div className="p-10 flex flex-col items-center justify-center text-center">
+                  <div className="relative w-20 h-20 mb-6">
+                    <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <CheckCircle2 className="w-8 h-8 text-indigo-600 opacity-50" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-800 mb-2">Submitting Exam</h3>
+                  <p className="text-slate-500">Please wait while we securely save your answers and calculate your score.</p>
+                  <div className="mt-6 flex items-center gap-2 text-xs font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Processing results...
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-slate-50 p-6 border-b border-slate-100">
+                    <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-amber-500" />
+                      Submit Exam?
+                    </h3>
+                    <p className="text-slate-600 mt-2 text-sm">
+                      Are you sure you want to submit? You won't be able to change your answers after this.
+                    </p>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                        <div className="text-green-600 text-xs font-semibold uppercase tracking-wider mb-1">Answered</div>
+                        <div className="text-2xl font-bold text-green-700">
+                          {Object.values(responses).filter(v => v !== null && (Array.isArray(v) ? v.length > 0 : true)).length}
+                        </div>
+                      </div>
+                      <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                        <div className="text-amber-600 text-xs font-semibold uppercase tracking-wider mb-1">Marked</div>
+                        <div className="text-2xl font-bold text-amber-700">
+                          {Object.values(marked).filter(Boolean).length}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <span className="text-slate-600 font-medium">Total Questions</span>
+                      <span className="text-xl font-bold text-slate-800">{allQuestions.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-6 pt-2 flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowSubmitDialog(false)}
+                      className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={performSubmit}
+                      className="px-5 py-2.5 bg-rose-500 text-white rounded-xl font-medium hover:bg-rose-600 transition-colors shadow-lg shadow-rose-200"
+                    >
+                      Yes, Submit Exam
+                    </button>
+                  </div>
+                  <div className="px-6 pb-6">
+                    <button
+                      onClick={handlePauseAndExit}
+                      className="w-full py-3 text-slate-500 text-sm font-medium hover:text-indigo-600 transition-colors border-t border-slate-100 mt-2"
+                    >
+                      Pause & Exit (Resume Later)
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

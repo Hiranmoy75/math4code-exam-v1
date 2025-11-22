@@ -1,84 +1,40 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Home, FileQuestion, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import SectionQuestionsCard from "./components/SectionQuestionsCard";
 import QuestionBankModal from "./components/QuestionBankModal";
+import { useSectionInfo, useSectionQuestions, useRemoveQuestion } from "@/hooks/admin/useSectionManagement";
+import { toast } from "sonner";
 
 export default function ManageSectionQuestionsPage() {
   const params = useParams();
   const examId = params.examId as string;
   const sectionId = params.sectionId as string;
-  const router = useRouter();
 
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [sectionInfo, setSectionInfo] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showBankModal, setShowBankModal] = useState(false);
 
-  const loadSectionInfo = async () => {
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("sections")
-        .select("*, exams(title)")
-        .eq("id", sectionId)
-        .single();
+  const { data: sectionInfo, isLoading: isInfoLoading } = useSectionInfo(sectionId);
+  const { data: questions, isLoading: isQuestionsLoading, refetch: refetchQuestions } = useSectionQuestions(sectionId);
+  const { mutate: removeQuestion } = useRemoveQuestion();
 
-      if (error) throw error;
-      setSectionInfo(data);
-    } catch (err: any) {
-      console.error("Failed to load section info:", err);
-    }
+  const handleRemoveQuestion = (questionId: string) => {
+    toast("Are you sure you want to remove this question?", {
+      action: {
+        label: "Delete",
+        onClick: () => removeQuestion(questionId),
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => { },
+      },
+    });
   };
 
-  const loadQuestions = async () => {
-    setIsLoading(true);
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("questions")
-        .select("*")
-        .eq("section_id", sectionId)
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setQuestions(data || []);
-    } catch (err: any) {
-      setError(err.message || "Failed to load questions");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSectionInfo();
-    loadQuestions();
-  }, [sectionId]);
-
-  const handleRemoveQuestion = async (questionId: string) => {
-    if (!confirm("Are you sure you want to remove this question?")) {
-      return;
-    }
-
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("questions")
-        .delete()
-        .eq("id", questionId);
-
-      if (error) throw error;
-      setQuestions((prev) => prev.filter((q) => q.id !== questionId));
-    } catch (err: any) {
-      setError(err.message || "Failed to remove question");
-    }
-  };
+  const isLoading = isInfoLoading || isQuestionsLoading;
 
   return (
     <div className="space-y-6">
@@ -143,21 +99,6 @@ export default function ManageSectionQuestionsPage() {
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-64 h-64 bg-white/10 rounded-full blur-3xl" />
       </motion.div>
 
-      {/* Error Message */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-2 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400"
-          >
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <p className="text-sm font-medium">{error}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Questions Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -165,11 +106,11 @@ export default function ManageSectionQuestionsPage() {
         transition={{ duration: 0.4, delay: 0.2 }}
       >
         <SectionQuestionsCard
-          questions={questions}
+          questions={questions || []}
           isLoading={isLoading}
           onRemoveQuestion={handleRemoveQuestion}
           onAddFromBank={() => setShowBankModal(true)}
-          onReorder={setQuestions}
+          onReorder={() => { }} // TODO: Implement reorder mutation if needed
         />
       </motion.div>
 
@@ -178,7 +119,7 @@ export default function ManageSectionQuestionsPage() {
         show={showBankModal}
         setShow={setShowBankModal}
         sectionId={sectionId}
-        reloadQuestions={loadQuestions}
+        reloadQuestions={refetchQuestions}
       />
     </div>
   );

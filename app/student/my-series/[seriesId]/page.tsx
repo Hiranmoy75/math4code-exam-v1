@@ -126,13 +126,12 @@ export default function TestSeriesDetails({
                 </p>
               </div>
               <span
-                className={`text-xs px-2 py-1 rounded-full font-medium ${
-                  test.status === "Completed"
+                className={`text-xs px-2 py-1 rounded-full font-medium ${test.status === "Completed"
                     ? "bg-green-100 text-green-700 dark:bg-green-700/30 dark:text-green-300"
                     : test.status === "Ongoing"
-                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/30 dark:text-yellow-300"
-                    : "bg-slate-200 text-slate-600 dark:bg-slate-700/40 dark:text-slate-400"
-                }`}
+                      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-700/30 dark:text-yellow-300"
+                      : "bg-slate-200 text-slate-600 dark:bg-slate-700/40 dark:text-slate-400"
+                  }`}
               >
                 {test.status}
               </span>
@@ -174,12 +173,12 @@ export default function TestSeriesDetails({
                     </motion.button>
                   </Link>
                   {test.canReattempt && (
-                    <Link href={`/student/exams/${test.id}`}>
+                    <Link href={`/student/exams/${test.id}?retake=true`}>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-semibold shadow-md"
                       >
-                        <RefreshCw className="w-4 h-4" /> Reattempt
+                        <RefreshCw className="w-4 h-4" /> Retake Exam
                       </motion.button>
                     </Link>
                   )}

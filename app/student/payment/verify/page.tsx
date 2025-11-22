@@ -1,49 +1,31 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { CheckCircle, XCircle, Loader2, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useQuery } from '@tanstack/react-query'
 
 export default function PaymentVerifyPage() {
     const searchParams = useSearchParams()
     const router = useRouter()
-    const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading')
-    const [message, setMessage] = useState('')
     const txnId = searchParams.get('txnId')
 
-    useEffect(() => {
-        if (!txnId) {
-            setStatus('failed')
-            setMessage('Transaction ID not found')
-            return
-        }
-
-        verifyPayment()
-    }, [txnId])
-
-    const verifyPayment = async () => {
-        try {
-            // Call our API to verify payment with PhonePe
+    const { data, isLoading, error } = useQuery({
+        queryKey: ['verify-payment', txnId],
+        queryFn: async () => {
+            if (!txnId) throw new Error('Transaction ID not found')
             const response = await fetch(`/api/payments/verify?txnId=${txnId}`)
-            const data = await response.json()
+            const result = await response.json()
+            return result
+        },
+        enabled: !!txnId,
+        retry: false,
+        staleTime: 0, // Always verify fresh
+    })
 
-            console.log('Payment verification response:', data)
-
-            if (data.success && data.status === 'success') {
-                setStatus('success')
-                setMessage(data.message || 'Payment successful! You have been enrolled in the test series.')
-            } else {
-                setStatus('failed')
-                setMessage(data.message || 'Payment verification failed. Please contact support.')
-            }
-        } catch (error) {
-            console.error('Verification error:', error)
-            setStatus('failed')
-            setMessage('An error occurred during verification. Please contact support.')
-        }
-    }
+    const status = isLoading ? 'loading' : (data?.success && data?.status === 'success') ? 'success' : 'failed'
+    const message = data?.message || (error as Error)?.message || (status === 'success' ? 'Payment successful! You have been enrolled in the test series.' : 'Payment verification failed. Please contact support.')
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-950 dark:to-slate-900">
