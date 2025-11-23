@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "student"
+export type UserRole = "admin" | "student" | "creator"
 
 export interface User {
   id: string
@@ -51,7 +51,7 @@ export interface Question {
   image_url: string | null
   created_at: string
   updated_at: string
-  duration_minutes:number
+  duration_minutes: number
 }
 
 export interface Option {
@@ -120,5 +120,63 @@ export interface SectionResult {
   marks_obtained: number
   total_marks: number
   accuracy: number | null
+  created_at: string
+}
+
+// LMS Types
+
+export interface Course {
+  id: string
+  creator_id: string
+  title: string
+  description: string | null
+  price: number
+  thumbnail_url: string | null
+  category: string | null
+  level: "beginner" | "intermediate" | "advanced" | "all"
+  is_published: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Module {
+  id: string
+  course_id: string
+  title: string
+  description: string | null
+  module_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Lesson {
+  id: string
+  module_id: string
+  title: string
+  content_type: "video" | "text" | "pdf" | "quiz"
+  content_url: string | null
+  content_text: string | null
+  video_duration: number | null
+  is_free_preview: boolean
+  lesson_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Enrollment {
+  id: string
+  user_id: string
+  course_id: string
+  enrolled_at: string
+  status: "active" | "completed" | "refunded"
+  progress: number
+}
+
+export interface Review {
+  id: string
+  course_id: string
+  user_id: string
+  rating: number
+  comment: string | null
   created_at: string
 }

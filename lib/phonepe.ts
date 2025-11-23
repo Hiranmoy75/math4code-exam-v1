@@ -9,8 +9,9 @@ export async function createPayment(orderId: string, amount: number) {
     merchantTransactionId: orderId,
     merchantUserId: "user_123",
     amount: amount * 100, // 💰 Convert to paise
-    redirectUrl: `${process.env.NEXT_PUBLIC_DOMAIN}/api/phonepe/redirect`,
-    callbackUrl: `${process.env.NEXT_PUBLIC_DOMAIN}/api/phonepe/callback`,
+    redirectUrl: `${process.env.NEXT_PUBLIC_DOMAIN || 'http://localhost:3000'}/api/phonepe/redirect`,
+    redirectMode: "POST",
+    callbackUrl: `${process.env.NEXT_PUBLIC_DOMAIN || 'http://localhost:3000'}/api/phonepe/callback`,
     paymentInstrument: {
       type: "PAY_PAGE",
     },
@@ -27,18 +28,25 @@ export async function createPayment(orderId: string, amount: number) {
   const xVerify = `${sha256}###${saltIndex}`;
 
   // Step 3: Send request
-  const response = await axios.post(
-    url,
-    { request: payloadBase64 },
-    {
-      headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": xVerify,
-        "X-MERCHANT-ID": process.env.PHONEPE_MERCHANT_ID!,
-      },
-    }
-  );
+  // Step 3: Send request
+  try {
+    const response = await axios.post(
+      url,
+      { request: payloadBase64 },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-VERIFY": xVerify,
+          "X-MERCHANT-ID": process.env.PHONEPE_MERCHANT_ID!,
+        },
+      }
+    );
 
-  console.log("📦 PhonePe Response:", response.data);
-  return response.data;
+    console.log("📦 PhonePe Response:", response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error("❌ PhonePe Error:", error.response?.data || error.message);
+    console.error("Payload:", JSON.stringify(payload, null, 2));
+    return { success: false, error: error.response?.data || error.message };
+  }
 }

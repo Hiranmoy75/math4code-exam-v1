@@ -1,7 +1,7 @@
 'use client'
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   BookOpen,
   Award,
@@ -12,21 +12,39 @@ import {
   Star,
   PlayCircle,
   Loader2,
+  GraduationCap,
+  ShoppingCart,
+  ArrowRight,
 } from "lucide-react";
 
 import { useCurrentUser } from "@/hooks/student/useCurrentUser";
 import { useStudentStats } from "@/hooks/student/useStudentStats";
 import { useStudentTestSeries } from "@/hooks/student/useStudentTestSeries";
 import { useLastAttempt } from "@/hooks/student/useLastAttempt";
+import { useStudentCourses } from "@/hooks/student/useStudentCourses";
+import { useAllCourses } from "@/hooks/student/useAllCourses";
+import { Button } from "@/components/ui/button";
 
 export default function StudentDashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<"overview" | "my-courses" | "all-courses" | "test-series">("overview");
+
+  // Set active tab from URL parameter
+  useEffect(() => {
+    if (tabParam === "my-courses" || tabParam === "all-courses" || tabParam === "test-series") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // Fetch data
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const { data: stats, isLoading: statsLoading } = useStudentStats(user?.id);
   const { data: testSeries, isLoading: seriesLoading } = useStudentTestSeries(user?.id);
   const { data: lastAttempt } = useLastAttempt(user?.id);
+  const { data: myCourses, isLoading: myCoursesLoading } = useStudentCourses(user?.id);
+  const { data: allCourses, isLoading: allCoursesLoading } = useAllCourses(user?.id);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -47,7 +65,39 @@ export default function StudentDashboard() {
     router.push(`/student/test-series/${seriesId}`);
   };
 
-  // Format date
+  const handleContinueCourse = (courseId: string) => {
+    router.push(`/learn/${courseId}`);
+  };
+
+  const handleEnrollCourse = async (courseId: string, price: number) => {
+    if (price === 0) {
+      // Free course - direct enrollment via API
+      try {
+        const response = await fetch("/api/courses/enroll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ courseId }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Show success message
+          alert("Successfully enrolled! Redirecting to course...");
+          router.push(`/learn/${courseId}`);
+        } else {
+          alert(data.error || "Failed to enroll in course");
+        }
+      } catch (error) {
+        console.error("Enrollment error:", error);
+        alert("Failed to enroll in course. Please try again.");
+      }
+    } else {
+      // Paid course - go to course page for payment
+      router.push(`/courses/${courseId}`);
+    }
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "TBA";
     const date = new Date(dateString);
@@ -58,7 +108,6 @@ export default function StudentDashboard() {
     });
   };
 
-  // Get icon for test series
   const getSeriesIcon = (index: number) => {
     const icons = [
       <BookOpen key="book" className="w-5 h-5 text-indigo-500" />,
@@ -82,16 +131,16 @@ export default function StudentDashboard() {
       color: "from-indigo-50 to-blue-100 dark:from-slate-800 dark:to-slate-900",
     },
     {
-      title: "Time Spent (hrs)",
-      value: statsLoading ? "..." : `${stats?.totalTimeSpent || 0}h`,
-      icon: <Clock className="w-6 h-6 text-yellow-500" />,
-      color: "from-yellow-50 to-amber-100 dark:from-slate-800 dark:to-slate-900",
+      title: "Courses Enrolled",
+      value: myCoursesLoading ? "..." : myCourses?.length.toString() || "0",
+      icon: <GraduationCap className="w-6 h-6 text-purple-500" />,
+      color: "from-purple-50 to-pink-100 dark:from-slate-800 dark:to-slate-900",
     },
     {
       title: "Rank",
       value: statsLoading ? "..." : `#${stats?.rank || 0}`,
-      icon: <Award className="w-6 h-6 text-purple-500" />,
-      color: "from-purple-50 to-pink-100 dark:from-slate-800 dark:to-slate-900",
+      icon: <Award className="w-6 h-6 text-yellow-500" />,
+      color: "from-yellow-50 to-amber-100 dark:from-slate-800 dark:to-slate-900",
     },
   ];
 
@@ -155,71 +204,271 @@ export default function StudentDashboard() {
         ))}
       </div>
 
-      {/* Test Series Progress */}
-      <motion.div
-        variants={fadeIn}
-        initial="hidden"
-        animate="visible"
-        custom={5}
-        className="rounded-3xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-lg p-6 shadow-xl border border-slate-100 dark:border-slate-700"
-      >
-        <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-4">
-          Your Test Series
-        </h3>
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
+        {[
+          { id: "overview", label: "Overview" },
+          { id: "my-courses", label: "My Courses" },
+          { id: "all-courses", label: "All Courses" },
+          { id: "test-series", label: "Test Series" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-4 py-2 font-medium transition-colors ${activeTab === tab.id
+              ? "text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+              }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {seriesLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-          </div>
-        ) : testSeries && testSeries.length > 0 ? (
-          <div className="space-y-4">
-            {testSeries.map((test, idx) => (
-              <motion.div
-                key={test.id}
-                whileHover={{ scale: 1.02 }}
-                onClick={() => handleViewSeries(test.id)}
-                className="p-4 rounded-2xl border border-slate-100 dark:border-slate-700 bg-gradient-to-br from-white to-indigo-50 dark:from-slate-800 dark:to-slate-900 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-indigo-100 dark:bg-slate-700">
-                    {getSeriesIcon(idx)}
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-800 dark:text-white">
-                      {test.title}
-                    </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Next Exam: {test.nextExamName || "No upcoming exams"}
-                      {test.nextExamDate && ` - ${formatDate(test.nextExamDate)}`}
-                    </p>
-                  </div>
-                </div>
+      {/* Tab Content */}
+      {activeTab === "overview" && (
+        <div className="space-y-6">
+          {/* Recent Courses */}
+          {myCourses && myCourses.length > 0 && (
+            <motion.div
+              variants={fadeIn}
+              initial="hidden"
+              animate="visible"
+              custom={5}
+              className="rounded-3xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-lg p-6 shadow-xl border border-slate-100 dark:border-slate-700"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-slate-800 dark:text-white">Continue Learning</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveTab("my-courses")}
+                  className="text-indigo-600 dark:text-indigo-400"
+                >
+                  View All <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myCourses.slice(0, 3).map((course) => (
+                  <motion.div
+                    key={course.id}
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => handleContinueCourse(course.id)}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md cursor-pointer"
+                  >
+                    <h4 className="font-semibold text-slate-800 dark:text-white mb-2">{course.title}</h4>
+                    <div className="flex justify-between text-xs mb-2 text-slate-500 dark:text-slate-400">
+                      <span>Progress</span>
+                      <span>{course.progress_percentage.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                        style={{ width: `${course.progress_percentage}%` }}
+                      />
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      )}
 
-                <div className="w-full sm:w-56">
-                  <div className="flex justify-between text-xs mb-1 text-slate-500 dark:text-slate-400">
-                    <span>Progress ({test.completedExams}/{test.totalExams})</span>
-                    <span>{test.progress}%</span>
+      {activeTab === "my-courses" && (
+        <motion.div
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          custom={5}
+          className="rounded-3xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-lg p-6 shadow-xl border border-slate-100 dark:border-slate-700"
+        >
+          <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-4">My Courses</h3>
+
+          {myCoursesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+            </div>
+          ) : myCourses && myCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {myCourses.map((course) => (
+                <motion.div
+                  key={course.id}
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md"
+                >
+                  {course.thumbnail_url && (
+                    <img
+                      src={course.thumbnail_url}
+                      alt={course.title}
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                  )}
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-2">{course.title}</h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{course.description}</p>
+                  <div className="flex justify-between text-xs mb-2 text-slate-500 dark:text-slate-400">
+                    <span>{course.completed_lessons}/{course.total_lessons} lessons</span>
+                    <span>{course.progress_percentage.toFixed(0)}%</span>
                   </div>
-                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${test.progress}%` }}
-                      transition={{ duration: 1 }}
+                  <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 mb-3">
+                    <div
                       className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                      style={{ width: `${course.progress_percentage}%` }}
                     />
                   </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-            <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No test series enrolled yet</p>
-            <p className="text-sm mt-1">Contact your admin to get enrolled in test series</p>
-          </div>
-        )}
-      </motion.div>
+                  <Button
+                    onClick={() => handleContinueCourse(course.id)}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    Continue Learning
+                  </Button>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+              <GraduationCap className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No courses enrolled yet</p>
+              <p className="text-sm mt-1">Browse available courses to get started</p>
+              <Button
+                onClick={() => setActiveTab("all-courses")}
+                className="mt-4 bg-indigo-600 hover:bg-indigo-700"
+              >
+                Browse Courses
+              </Button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {activeTab === "all-courses" && (
+        <motion.div
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          custom={5}
+          className="rounded-3xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-lg p-6 shadow-xl border border-slate-100 dark:border-slate-700"
+        >
+          <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-4">All Courses</h3>
+
+          {allCoursesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+            </div>
+          ) : allCourses && allCourses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {allCourses.map((course) => (
+                <motion.div
+                  key={course.id}
+                  whileHover={{ scale: 1.02 }}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md"
+                >
+                  {course.thumbnail_url && (
+                    <img
+                      src={course.thumbnail_url}
+                      alt={course.title}
+                      className="w-full h-40 object-cover rounded-lg mb-3"
+                    />
+                  )}
+                  <h4 className="font-semibold text-slate-800 dark:text-white mb-2">{course.title}</h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">By {course.instructor_name}</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{course.description}</p>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-sm text-slate-500 dark:text-slate-400">{course.total_lessons} lessons</span>
+                    <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                      {course.price === 0 ? "Free" : `₹${course.price}`}
+                    </span>
+                  </div>
+                  {course.is_enrolled ? (
+                    <Button
+                      onClick={() => handleContinueCourse(course.id)}
+                      className="w-full bg-green-600 hover:bg-green-700"
+                    >
+                      Continue Learning
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleEnrollCourse(course.id, course.price)}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      {course.price === 0 ? "Enroll Free" : "View Course"}
+                    </Button>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+              <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No courses available yet</p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {activeTab === "test-series" && (
+        <motion.div
+          variants={fadeIn}
+          initial="hidden"
+          animate="visible"
+          custom={5}
+          className="rounded-3xl bg-white/70 dark:bg-slate-800/60 backdrop-blur-lg p-6 shadow-xl border border-slate-100 dark:border-slate-700"
+        >
+          <h3 className="text-xl font-semibold text-slate-800 dark:text-white mb-4">Your Test Series</h3>
+
+          {seriesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+            </div>
+          ) : testSeries && testSeries.length > 0 ? (
+            <div className="space-y-4">
+              {testSeries.map((test, idx) => (
+                <motion.div
+                  key={test.id}
+                  whileHover={{ scale: 1.02 }}
+                  onClick={() => handleViewSeries(test.id)}
+                  className="p-4 rounded-2xl border border-slate-100 dark:border-slate-700 bg-gradient-to-br from-white to-indigo-50 dark:from-slate-800 dark:to-slate-900 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 rounded-xl bg-indigo-100 dark:bg-slate-700">
+                      {getSeriesIcon(idx)}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-800 dark:text-white">{test.title}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Next Exam: {test.nextExamName || "No upcoming exams"}
+                        {test.nextExamDate && ` - ${formatDate(test.nextExamDate)}`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="w-full sm:w-56">
+                    <div className="flex justify-between text-xs mb-1 text-slate-500 dark:text-slate-400">
+                      <span>Progress ({test.completedExams}/{test.totalExams})</span>
+                      <span>{test.progress}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${test.progress}%` }}
+                        transition={{ duration: 1 }}
+                        className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+              <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No test series enrolled yet</p>
+              <p className="text-sm mt-1">Contact your admin to get enrolled in test series</p>
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Achievements Section */}
       {stats && stats.averageScore >= 75 && (

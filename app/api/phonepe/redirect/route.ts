@@ -1,35 +1,52 @@
-// app/api/payment/status/route.ts
 import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
-    const { merchantTransactionId } = await req.json();
+    const formData = await req.formData();
+    const transactionId = formData.get("transactionId") as string;
+    const code = formData.get("code");
 
-    const merchantId = process.env.PHONEPE_MERCHANT_ID!;
-    const saltKey = process.env.PHONEPE_SALT_KEY!;
-    const saltIndex = process.env.PHONEPE_SALT_INDEX!;
-    const baseUrl = process.env.PHONEPE_BASE_URL!;
+    // Note: PhonePe redirect sends data as form-data
+    // We should verify checksum here too, but for redirect it's less critical than callback
+    // as we can double check status with DB or API.
 
-    const endpoint = `/pg/v1/status/${merchantId}/${merchantTransactionId}`;
-    const stringToSign = endpoint + saltKey;
-    const sha256Hash = crypto.createHash("sha256").update(stringToSign).digest("hex");
-    const xVerify = `${sha256Hash}###${saltIndex}`;
+    const supabase = await createClient();
 
-    const response = await fetch(`${baseUrl}${endpoint}`, {
-      method: "GET",
-      headers: {
-        accept: "application/json",
-        "Content-Type": "application/json",
-        "X-MERCHANT-ID": merchantId,
-        "X-VERIFY": xVerify,
-      },
-    });
+    // Check if payment is already marked as success (by callback)
+    const { data: payment } = await supabase
+      .from("course_payments")
+      .select("status")
+      .eq("transaction_id", transactionId)
+      .single();
 
-    const data = await response.json();
-    return NextResponse.json(data);
-  } catch (err) {
-    console.error("Status check error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    if (payment?.status === "success") {
+      return NextResponse.redirect(new URL(`/student/payment/verify?txnId=${transactionId}`, req.url), 303);
+    }
+
+    // If not success yet, we rely on the code param
+    if (code === "PAYMENT_SUCCESS") {
+      // We can optimistically redirect to success, the verify page will poll/check status
+      return NextResponse.redirect(new URL(`/student/payment/verify?txnId=${transactionId}`, req.url), 303);
+    } else {
+      return NextResponse.redirect(new URL(`/student/payment/verify?txnId=${transactionId}&error=failed`, req.url), 303);
+    }
+
+  } catch (error: any) {
+    console.error("Redirect Error:", error);
+    return NextResponse.redirect(new URL(`/student/dashboard?error=payment_error`, req.url), 303);
   }
+}
+
+// Handle GET requests (in case PhonePe sends GET or user refreshes)
+export async function GET(req: Request) {
+  // For GET, params are in the URL search params, not body
+  const { searchParams } = new URL(req.url);
+  const transactionId = searchParams.get("transactionId") || searchParams.get("merchantTransactionId");
+
+  if (transactionId) {
+    return NextResponse.redirect(new URL(`/student/payment/verify?txnId=${transactionId}`, req.url), 303);
+  }
+
+  return NextResponse.redirect(new URL(`/student/dashboard?error=invalid_redirect`, req.url), 303);
 }

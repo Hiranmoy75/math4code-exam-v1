@@ -28,16 +28,17 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
 
-  if (!profile || profile.role !== "admin") {
+  if (!profile || (profile.role !== "admin" && profile.role !== "creator")) {
     redirect("/student/dashboard");
   }
- const links = [
+  const links = [
     { icon: "home", label: "Dashboard", href: "/admin/dashboard" },
+    { icon: "book-open", label: "Courses", href: "/admin/courses" },
     { icon: "question", label: "Question Bank", href: "/admin/question-bank" },
     { icon: "grid", label: "Exam", href: "/admin/exams" },
     { icon: "book", label: "Test Series", href: "/admin/test-series" },
-    { icon: "user", label: "Students" , href: "/admin/students" },
-    { icon: "settings", label: "Settings" ,href: "/admin/settings"},
+    { icon: "user", label: "Students", href: "/admin/students" },
+    { icon: "settings", label: "Settings", href: "/admin/settings" },
   ];
 
   return <AdminClientLayout profile={profile} links={links}>{children}</AdminClientLayout>;

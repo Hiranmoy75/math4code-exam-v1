@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Edit2, Trash2, Eye, Clock, Award, Calendar, ArrowRight } from "lucide-react";
+import { Edit2, Trash2, Eye, Clock, Award, Calendar, ArrowRight, Trophy } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function ExamRow({
@@ -82,6 +82,16 @@ export default function ExamRow({
           >
             <Trash2 className="w-4 h-4" />
           </Button>
+          <Link href={`/admin/exams/${exam.id}/results`}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              Results
+            </Button>
+          </Link>
           <Link href={`/admin/exams/${exam.id}`}>
             <Button
               size="sm"

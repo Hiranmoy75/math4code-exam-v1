@@ -7,7 +7,7 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ["ui-avatars.com", "avatars.dicebear.com", "avataaars.io", "robohash.org"],
+    domains: ["ui-avatars.com", "avatars.dicebear.com", "avataaars.io", "robohash.org", "avgmafkynfbynzhlbbpk.supabase.co"],
   },
 }
 
