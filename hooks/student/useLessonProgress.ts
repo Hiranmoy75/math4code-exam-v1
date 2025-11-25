@@ -61,6 +61,45 @@ export function useMarkLessonComplete() {
     })
 }
 
+export function useMarkLessonIncomplete() {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ userId, lessonId, courseId }: MarkLessonCompleteParams) => {
+            const supabase = createClient()
+
+            console.log("Marking lesson incomplete:", { userId, lessonId, courseId });
+
+            // Update lesson progress to incomplete
+            const { data, error } = await supabase
+                .from("lesson_progress")
+                .update({
+                    completed: false,
+                    completed_at: null,
+                })
+                .eq("user_id", userId)
+                .eq("lesson_id", lessonId)
+                .eq("course_id", courseId)
+                .select()
+                .single()
+
+            if (error) {
+                console.error("Supabase update error:", error);
+                throw error;
+            }
+
+            console.log("Lesson marked incomplete:", data);
+
+            return data
+        },
+        onSuccess: (_, variables) => {
+            // Invalidate relevant queries
+            queryClient.invalidateQueries({ queryKey: ["student-courses", variables.userId] })
+            queryClient.invalidateQueries({ queryKey: ["lesson-progress", variables.userId, variables.courseId] })
+        },
+    })
+}
+
 export function useLessonProgress(userId: string | undefined, courseId: string | undefined) {
     return useQuery({
         queryKey: ["lesson-progress", userId, courseId],

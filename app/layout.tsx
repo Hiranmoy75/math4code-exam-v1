@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { ReactQueryProviders } from "@/lib/provider/Provider"
+import { ThemeProvider } from "@/components/theme-provider"
 import { MathJaxContext } from "better-react-mathjax"
 import { Toaster } from "sonner"
 
@@ -66,10 +67,17 @@ export default function RootLayout({
       </head>
       <body className={`font-sans antialiased `}>
         <ReactQueryProviders>
-          <MathJaxContext version={3} config={config}>
-            {children}
-          </MathJaxContext>
-          <Toaster richColors position="top-center" />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <MathJaxContext version={3} config={config}>
+              {children}
+            </MathJaxContext>
+            <Toaster richColors position="top-center" />
+          </ThemeProvider>
         </ReactQueryProviders>
         <Analytics />
       </body>

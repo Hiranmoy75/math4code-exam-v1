@@ -9,12 +9,37 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion"
-import { PlayCircle, FileText, ChevronLeft, ChevronRight, HelpCircle, Menu, X, PanelLeftClose, PanelLeft, CheckCircle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { PlayCircle, FileText, ChevronLeft, ChevronRight, HelpCircle, Menu, X, PanelLeftClose, PanelLeft, CheckCircle, BookOpen, Video, Share2, User, Book } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { AnimatePresence, motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { useLessonProgress, useMarkLessonComplete } from "@/hooks/student/useLessonProgress"
+import { ModeToggle } from "@/components/mode-toggle"
 
 interface CoursePlayerClientProps {
     course: any
@@ -23,6 +48,8 @@ interface CoursePlayerClientProps {
     nextLessonId: string | null
     prevLessonId: string | null
     courseId: string
+    user: any
+    profile: any
     children: React.ReactNode
 }
 
@@ -33,6 +60,8 @@ export function CoursePlayerClient({
     nextLessonId,
     prevLessonId,
     courseId,
+    user,
+    profile,
     children
 }: CoursePlayerClientProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -100,82 +129,107 @@ export function CoursePlayerClient({
     }
 
     return (
-        <div className="flex h-screen bg-[#0f1117] text-white overflow-hidden font-sans">
+        <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
             {/* Desktop Sidebar */}
             <motion.div
                 initial={false}
                 animate={{ width: desktopSidebarCollapsed ? 0 : 320 }}
                 transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="border-r border-slate-800 bg-[#161b22] hidden md:flex flex-col overflow-hidden"
+                className="border-r border-border bg-card hidden md:flex flex-col overflow-hidden z-20"
             >
-                <div className="p-4 border-b border-slate-800">
-                    <div className="flex items-center gap-3 mb-3">
-                        <Link href="/student/dashboard" className="text-slate-400 hover:text-white transition-colors">
+                <div className="p-6 border-b border-border bg-card">
+                    <div className="flex items-center gap-3 mb-6">
+                        <Link href="/student/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
                             <ChevronLeft className="h-5 w-5" />
                         </Link>
-                        <span className="font-semibold truncate text-sm">{course.title}</span>
+                        <h2 className="font-bold truncate text-lg text-foreground tracking-tight">{course.title}</h2>
                     </div>
                     {/* Progress Bar */}
-                    <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-slate-400">
-                            <span>Course Progress</span>
-                            <span>{progressPercentage.toFixed(0)}%</span>
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-sm font-medium text-muted-foreground">
+                            <span>Progress</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">{progressPercentage.toFixed(0)}%</span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-slate-700">
+                        <div className="w-full h-2 rounded-full bg-emerald-100 dark:bg-emerald-950/30 overflow-hidden">
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: `${progressPercentage}%` }}
                                 transition={{ duration: 0.5 }}
-                                className="h-2 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500"
+                                className="h-full rounded-full bg-emerald-500"
                             />
                         </div>
                     </div>
                 </div>
-                <ScrollArea className="flex-1">
-                    <Accordion type="single" collapsible className="w-full" defaultValue={modules[0]?.id}>
-                        {modules.map((module) => (
-                            <AccordionItem key={module.id} value={module.id} className="border-b border-slate-800">
-                                <AccordionTrigger className="px-4 hover:no-underline hover:bg-slate-800/50 py-3 text-slate-300 data-[state=open]:text-white">
-                                    <div className="text-left text-sm font-medium">
-                                        {module.title}
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="pt-0 pb-0">
-                                    <div>
-                                        {module.lessons.map((lesson: any) => {
-                                            const isActive = currentLesson?.id === lesson.id;
-                                            const isCompleted = isLessonCompleted(lesson.id);
-                                            return (
-                                                <Link
-                                                    key={lesson.id}
-                                                    href={`/learn/${courseId}?lessonId=${lesson.id}`}
-                                                    className={cn(
-                                                        "flex items-center gap-3 p-3 pl-6 text-sm transition-colors border-l-2",
-                                                        isActive
-                                                            ? "bg-blue-500/10 border-blue-500 text-blue-400"
-                                                            : "border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                                                    )}
-                                                >
-                                                    {lesson.content_type === "video" ? (
-                                                        <PlayCircle className="h-4 w-4 shrink-0" />
-                                                    ) : lesson.content_type === "quiz" ? (
-                                                        <HelpCircle className="h-4 w-4 shrink-0 text-purple-400" />
-                                                    ) : (
-                                                        <FileText className="h-4 w-4 shrink-0" />
-                                                    )}
-                                                    <span className="line-clamp-1 flex-1">{lesson.title}</span>
-                                                    {isCompleted && (
-                                                        <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
-                                                    )}
-                                                </Link>
-                                            );
-                                        })}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
+                <ScrollArea className="flex-1 bg-muted/5">
+                    <TooltipProvider delayDuration={0}>
+                        <Accordion type="single" collapsible className="w-full space-y-2 p-2" defaultValue={modules[0]?.id}>
+                            {modules.map((module) => (
+                                <AccordionItem key={module.id} value={module.id} className="border-none">
+                                    <AccordionTrigger className="px-3 hover:no-underline hover:bg-muted/50 py-3 rounded-lg text-foreground/80 data-[state=open]:text-foreground transition-all">
+                                        <div className="flex items-center justify-between w-full pr-2">
+                                            <div className="text-left text-sm font-semibold tracking-tight line-clamp-1 mr-2">
+                                                {module.title}
+                                            </div>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="pt-1 pb-0">
+                                        <div className="space-y-1">
+                                            {module.lessons.map((lesson: any) => {
+                                                const isActive = currentLesson?.id === lesson.id;
+                                                const isCompleted = isLessonCompleted(lesson.id);
+
+                                                let Icon = BookOpen;
+                                                let typeLabel = "Reading";
+                                                if (lesson.content_type === "video") { Icon = Video; typeLabel = "Video"; }
+                                                if (lesson.content_type === "quiz") { Icon = HelpCircle; typeLabel = "Quiz"; }
+                                                if (lesson.content_type === "pdf") { Icon = FileText; typeLabel = "PDF"; }
+
+                                                return (
+                                                    <Link
+                                                        key={lesson.id}
+                                                        href={`/learn/${courseId}?lessonId=${lesson.id}`}
+                                                        className={cn(
+                                                            "group flex items-start gap-3 py-3 px-4 text-sm transition-all rounded-lg border-l-4",
+                                                            isActive
+                                                                ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 text-emerald-950 dark:text-emerald-50"
+                                                                : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                                                        )}
+                                                    >
+                                                        <Icon className={cn(
+                                                            "h-5 w-5 shrink-0 mt-0.5",
+                                                            isActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/70"
+                                                        )} />
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className={cn("font-medium line-clamp-2 leading-tight", isActive ? "text-emerald-900 dark:text-emerald-100" : "text-foreground")}>
+                                                                {lesson.title}
+                                                            </div>
+                                                            <div className={cn("text-xs mt-1", isActive ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-muted-foreground/60")}>
+                                                                {typeLabel}
+                                                            </div>
+                                                        </div>
+                                                        {isCompleted && (
+                                                            <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500 fill-emerald-500/10" />
+                                                        )}
+                                                    </Link>
+                                                );
+                                            })}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    </TooltipProvider>
                 </ScrollArea>
+                <div className="p-4 border-t border-border bg-card text-xs text-muted-foreground">
+                    <div className="flex flex-col gap-2">
+                        <p>© 2022. All rights reserved.</p>
+                        <div className="flex gap-2">
+                            <Link href="#" className="hover:text-foreground transition-colors">Help Center</Link>
+                            <span>·</span>
+                            <Link href="#" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+                        </div>
+                    </div>
+                </div>
             </motion.div>
 
             {/* Mobile Sidebar Drawer */}
@@ -187,54 +241,71 @@ export function CoursePlayerClient({
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setSidebarOpen(false)}
-                            className="fixed inset-0 bg-black/60 z-40 md:hidden"
+                            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[90] md:hidden"
                         />
                         <motion.div
                             initial={{ x: "-100%" }}
                             animate={{ x: 0 }}
                             exit={{ x: "-100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed inset-y-0 left-0 z-50 w-80 bg-[#161b22] shadow-2xl border-r border-slate-800 md:hidden flex flex-col"
+                            className="fixed inset-y-0 left-0 z-[100] w-80 bg-card shadow-2xl border-r border-border md:hidden flex flex-col"
                         >
-                            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-                                <span className="font-semibold truncate text-sm">{course.title}</span>
-                                <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-slate-800 rounded-full">
-                                    <X className="h-5 w-5 text-slate-400" />
+                            <div className="p-6 border-b border-border bg-card flex items-center justify-between">
+                                <span className="font-bold truncate text-lg text-foreground tracking-tight">{course.title}</span>
+                                <button onClick={() => setSidebarOpen(false)} className="p-2 hover:bg-muted rounded-full transition-colors">
+                                    <X className="h-5 w-5 text-muted-foreground" />
                                 </button>
                             </div>
-                            <ScrollArea className="flex-1">
-                                <Accordion type="single" collapsible className="w-full" defaultValue={modules[0]?.id}>
+                            <ScrollArea className="flex-1 bg-muted/5">
+                                <Accordion type="single" collapsible className="w-full space-y-2 p-2" defaultValue={modules[0]?.id}>
                                     {modules.map((module) => (
-                                        <AccordionItem key={module.id} value={module.id} className="border-b border-slate-800">
-                                            <AccordionTrigger className="px-4 hover:no-underline hover:bg-slate-800/50 py-3 text-slate-300 data-[state=open]:text-white">
-                                                <div className="text-left text-sm font-medium">
-                                                    {module.title}
+                                        <AccordionItem key={module.id} value={module.id} className="border-none">
+                                            <AccordionTrigger className="px-3 hover:no-underline hover:bg-muted/50 py-3 rounded-lg text-foreground/80 data-[state=open]:text-foreground transition-all">
+                                                <div className="flex items-center justify-between w-full pr-2">
+                                                    <div className="text-left text-sm font-semibold tracking-tight line-clamp-1 mr-2">
+                                                        {module.title}
+                                                    </div>
                                                 </div>
                                             </AccordionTrigger>
-                                            <AccordionContent className="pt-0 pb-0">
-                                                <div>
+                                            <AccordionContent className="pt-1 pb-0">
+                                                <div className="space-y-1">
                                                     {module.lessons.map((lesson: any) => {
                                                         const isActive = currentLesson?.id === lesson.id;
+                                                        const isCompleted = isLessonCompleted(lesson.id);
+
+                                                        let Icon = BookOpen;
+                                                        let typeLabel = "Reading";
+                                                        if (lesson.content_type === "video") { Icon = Video; typeLabel = "Video"; }
+                                                        if (lesson.content_type === "quiz") { Icon = HelpCircle; typeLabel = "Quiz"; }
+                                                        if (lesson.content_type === "pdf") { Icon = FileText; typeLabel = "PDF"; }
+
                                                         return (
                                                             <Link
                                                                 key={lesson.id}
                                                                 href={`/learn/${courseId}?lessonId=${lesson.id}`}
                                                                 onClick={() => setSidebarOpen(false)}
                                                                 className={cn(
-                                                                    "flex items-center gap-3 p-3 pl-6 text-sm transition-colors border-l-2",
+                                                                    "group flex items-start gap-3 py-3 px-4 text-sm transition-all rounded-lg border-l-4",
                                                                     isActive
-                                                                        ? "bg-blue-500/10 border-blue-500 text-blue-400"
-                                                                        : "border-transparent text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                                                                        ? "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500 text-emerald-950 dark:text-emerald-50"
+                                                                        : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                                                                 )}
                                                             >
-                                                                {lesson.content_type === "video" ? (
-                                                                    <PlayCircle className="h-4 w-4 shrink-0" />
-                                                                ) : lesson.content_type === "quiz" ? (
-                                                                    <HelpCircle className="h-4 w-4 shrink-0 text-purple-400" />
-                                                                ) : (
-                                                                    <FileText className="h-4 w-4 shrink-0" />
+                                                                <Icon className={cn(
+                                                                    "h-5 w-5 shrink-0 mt-0.5",
+                                                                    isActive ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/70"
+                                                                )} />
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className={cn("font-medium line-clamp-2 leading-tight", isActive ? "text-emerald-900 dark:text-emerald-100" : "text-foreground")}>
+                                                                        {lesson.title}
+                                                                    </div>
+                                                                    <div className={cn("text-xs mt-1", isActive ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-muted-foreground/60")}>
+                                                                        {typeLabel}
+                                                                    </div>
+                                                                </div>
+                                                                {isCompleted && (
+                                                                    <CheckCircle className="h-5 w-5 shrink-0 text-emerald-500 fill-emerald-500/10" />
                                                                 )}
-                                                                <span className="line-clamp-1">{lesson.title}</span>
                                                             </Link>
                                                         );
                                                     })}
@@ -244,6 +315,16 @@ export function CoursePlayerClient({
                                     ))}
                                 </Accordion>
                             </ScrollArea>
+                            <div className="p-4 border-t border-border bg-card text-xs text-muted-foreground">
+                                <div className="flex flex-col gap-2">
+                                    <p>© 2022. All rights reserved.</p>
+                                    <div className="flex gap-2">
+                                        <Link href="#" className="hover:text-foreground transition-colors">Help Center</Link>
+                                        <span>·</span>
+                                        <Link href="#" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+                                    </div>
+                                </div>
+                            </div>
                         </motion.div>
                     </>
                 )}
@@ -252,68 +333,80 @@ export function CoursePlayerClient({
             {/* Main Content */}
             <div className="flex-1 flex flex-col h-full overflow-hidden relative">
                 {/* Top Navigation Bar */}
-                <div className="h-16 border-b border-slate-800 bg-[#0f1117] flex items-center justify-between px-6 shrink-0">
-                    <div className="flex items-center gap-4">
+                <div className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-6 shrink-0 z-10">
+                    <div className="flex items-center gap-4 flex-1">
                         {/* Mobile menu button */}
                         <button
                             onClick={() => setSidebarOpen(true)}
-                            className="md:hidden p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                            className="md:hidden p-2 hover:bg-accent rounded-lg transition-colors"
                         >
-                            <Menu className="h-5 w-5 text-slate-400" />
+                            <Menu className="h-5 w-5 text-muted-foreground" />
                         </button>
                         {/* Desktop sidebar toggle */}
                         <button
                             onClick={() => setDesktopSidebarCollapsed(!desktopSidebarCollapsed)}
-                            className="hidden md:block p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                            className="hidden md:block p-2 hover:bg-accent rounded-lg transition-colors"
                             title={desktopSidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
                         >
                             {desktopSidebarCollapsed ? (
-                                <PanelLeft className="h-5 w-5 text-slate-400" />
+                                <PanelLeft className="h-5 w-5 text-muted-foreground" />
                             ) : (
-                                <PanelLeftClose className="h-5 w-5 text-slate-400" />
+                                <PanelLeftClose className="h-5 w-5 text-muted-foreground" />
                             )}
                         </button>
-                        <Link href="/student/dashboard" className="md:hidden">
-                            <ChevronLeft className="h-5 w-5 text-slate-400" />
-                        </Link>
-                        <span className="font-semibold truncate text-sm md:hidden">{course.title}</span>
-                    </div>
 
-                    <div className="hidden md:block text-lg font-medium truncate max-w-xl">
-                        {currentLesson?.title}
+                        {/* Breadcrumbs */}
+                        <Breadcrumb className="hidden md:flex">
+                            <BreadcrumbList>
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink href="/student/dashboard" className="flex items-center gap-1">
+                                        <Book className="h-4 w-4" />
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator />
+                                <BreadcrumbItem>
+                                    <BreadcrumbLink href={`/courses/${courseId}`} className="max-w-[150px] truncate">
+                                        {course.title}
+                                    </BreadcrumbLink>
+                                </BreadcrumbItem>
+                                <BreadcrumbSeparator />
+                                <BreadcrumbItem>
+                                    <BreadcrumbPage className="max-w-[200px] truncate font-medium">
+                                        {currentLesson?.title}
+                                    </BreadcrumbPage>
+                                </BreadcrumbItem>
+                            </BreadcrumbList>
+                        </Breadcrumb>
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-transparent border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white"
-                            disabled={!prevLessonId}
-                            asChild={!!prevLessonId}
-                        >
-                            {prevLessonId ? (
-                                <Link href={`/learn/${courseId}?lessonId=${prevLessonId}`}>
-                                    <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-                                </Link>
-                            ) : (
-                                <span><ChevronLeft className="h-4 w-4 mr-1" /> Previous</span>
-                            )}
+                        <ModeToggle />
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-2 border-border bg-transparent">
+                                    <User className="h-4 w-4" />
+                                    <span className="max-w-[100px] truncate">{profile?.full_name || user?.email || "User"}</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>Profile</DropdownMenuItem>
+                                <DropdownMenuItem>Settings</DropdownMenuItem>
+                                <DropdownMenuItem>Log out</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 hidden sm:flex">
+                            <Share2 className="h-4 w-4" />
+                            Share
                         </Button>
-                        <Button
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                            disabled={!nextLessonId}
-                            onClick={handleNextLesson}
-                            asChild={!!nextLessonId}
-                        >
-                            {nextLessonId ? (
-                                <Link href={`/learn/${courseId}?lessonId=${nextLessonId}`}>
-                                    Next <ChevronRight className="h-4 w-4 ml-1" />
-                                </Link>
-                            ) : (
-                                <span>Next <ChevronRight className="h-4 w-4 ml-1" /></span>
-                            )}
-                        </Button>
+
+                        <Avatar className="h-8 w-8 border border-border">
+                            <AvatarImage src={profile?.avatar_url} alt={profile?.full_name || "User"} />
+                            <AvatarFallback>{profile?.full_name?.charAt(0) || user?.email?.charAt(0) || "U"}</AvatarFallback>
+                        </Avatar>
                     </div>
                 </div>
 

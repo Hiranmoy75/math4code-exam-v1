@@ -17,7 +17,7 @@ export type Section = { id: string; title: string; questions: Question[] }
 export type Exam = { id: string; title: string; duration_minutes: number; total_marks?: number }
 export type Attempt = { id: string; status: string; exam_id: string; student_id: string; total_time_spent?: number }
 
-export function useExamSession(examId: string, userId: string | null, isRetake: boolean = false) {
+export function useExamSession(examId: string, userId: string | null, isRetake: boolean = false, enabled: boolean = true) {
     const supabase = createClient()
 
     return useQuery({
@@ -71,17 +71,12 @@ export function useExamSession(examId: string, userId: string | null, isRetake: 
                     throw new Error("This exam has already been submitted. Please return to the test series page to retake the exam.")
                 }
 
-                // Check max_attempts before creating (for both first attempt and retakes)
-                const { data: seriesExamConfig } = await supabase
-                    .from("test_series_exams")
-                    .select("max_attempts")
-                    .eq("exam_id", examId)
-                    .single()
-
-                const maxAttempts = seriesExamConfig?.max_attempts
+                // Check max_attempts from the exam configuration
+                const maxAttempts = (exam as any).max_attempts
 
                 // Check if student has attempts remaining
-                const hasAttemptsRemaining = !maxAttempts || maxAttempts === 0 || submittedAttempts.length < maxAttempts
+                // If maxAttempts is null/undefined, it means unlimited attempts
+                const hasAttemptsRemaining = !maxAttempts || submittedAttempts.length < maxAttempts
 
                 if (hasAttemptsRemaining) {
                     // Create new attempt
@@ -94,7 +89,7 @@ export function useExamSession(examId: string, userId: string | null, isRetake: 
                     if (createError) throw createError
                     attempt = newAttempt
                 } else {
-                    throw new Error("You have reached the maximum number of attempts for this exam.")
+                    throw new Error(`You have reached the maximum number of attempts (${maxAttempts}) for this exam.`)
                 }
             }
 
@@ -128,7 +123,7 @@ export function useExamSession(examId: string, userId: string | null, isRetake: 
                 previousResponses
             }
         },
-        enabled: !!examId && !!userId,
+        enabled: !!examId && !!userId && enabled,
         staleTime: Infinity, // Keep data fresh for the session
         refetchOnWindowFocus: false,
     })
@@ -169,6 +164,8 @@ export function useSubmitExam() {
             totalMarks: number
         }) => {
             // 1. Save all responses (Upsert)
+            console.log("Submitting exam...", { attemptId, examId, responsesCount: Object.keys(responses).length })
+
             const entries = Object.entries(responses).map(([qid, ans]) => ({
                 attempt_id: attemptId,
                 question_id: qid,
@@ -180,7 +177,10 @@ export function useSubmitExam() {
                 const { error: respError } = await supabase.from("responses").upsert(entries, {
                     onConflict: "attempt_id,question_id",
                 })
-                if (respError) throw respError
+                if (respError) {
+                    console.error("Error saving responses:", respError)
+                    throw new Error(`Failed to save responses: ${respError.message}`)
+                }
             }
 
             // 2. Mark attempt as submitted
@@ -188,7 +188,10 @@ export function useSubmitExam() {
                 .from("exam_attempts")
                 .update({ status: "submitted" })
                 .eq("id", attemptId)
-            if (updateError) throw updateError
+            if (updateError) {
+                console.error("Error updating attempt status:", updateError)
+                throw new Error(`Failed to update attempt status: ${updateError.message}`)
+            }
 
             // 3. Calculate Result
             const questionIds = Object.keys(responses)
@@ -198,7 +201,10 @@ export function useSubmitExam() {
                     .from("questions")
                     .select("*, options(*)")
                     .in("id", questionIds)
-                if (qError) throw qError
+                if (qError) {
+                    console.error("Error fetching questions for grading:", qError)
+                    throw new Error(`Failed to fetch questions: ${qError.message}`)
+                }
                 questions = qs || []
             }
 
@@ -252,13 +258,16 @@ export function useSubmitExam() {
                         attempt_id: attemptId,
                         total_marks: totalMarks,
                         obtained_marks: obtainedMarks.toFixed(2),
-                        percentage: percentage.toFixed(2),
+                        percentage: percentage.toFixed(2)
                     },
                 ])
                 .select()
                 .single()
 
-            if (resultError) throw resultError
+            if (resultError) {
+                console.error("Error inserting result:", resultError)
+                throw new Error(`Failed to insert result: ${resultError.message}`)
+            }
 
             // 5. Insert Section Results
             for (const section of sections) {
@@ -310,7 +319,10 @@ export function useSubmitExam() {
                     wrong_answers: sectionWrong,
                     unanswered: sectionUnanswered,
                 })
-                if (secError) throw secError
+                if (secError) {
+                    console.error("Error inserting section result:", secError)
+                    throw new Error(`Failed to insert section result: ${secError.message}`)
+                }
             }
 
             return resultRow
@@ -318,11 +330,13 @@ export function useSubmitExam() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["test-series-details"] })
             queryClient.invalidateQueries({ queryKey: ["exam-session"] })
+            // Invalidate attempts list to update "Attempts Remaining" count
+            queryClient.invalidateQueries({ queryKey: ["exam-attempts"] })
             toast.success("Exam submitted successfully!")
         },
-        onError: (error) => {
-            console.error("Submission error:", error)
-            toast.error("Failed to submit exam.")
+        onError: (error: any) => {
+            console.error("Submission error details:", error)
+            toast.error(error.message || "Failed to submit exam.")
         }
     })
 }

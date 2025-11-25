@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import VideoPlayer from "@/components/VideoPlayer";
 
 interface ModuleWithLessons extends Module {
     lessons: Lesson[];
@@ -339,6 +341,7 @@ export default function CourseBuilder({ course, initialModules }: CourseBuilderP
             <div className="flex-1 overflow-hidden bg-slate-50 dark:bg-[#0f1117]">
                 {selectedLesson ? (
                     <LessonEditor
+                        key={selectedLesson.id}
                         lesson={selectedLesson}
                         onUpdate={handleLessonUpdated}
                         onDelete={handleDeleteLesson}
@@ -748,12 +751,13 @@ function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate
                                 <div className="space-y-2">
                                     <Label className="dark:text-slate-300">Preview</Label>
                                     <div className="aspect-video bg-black rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                                        <iframe
+                                        {/* <iframe
                                             src={convertToEmbedUrl(contentUrl)}
                                             className="w-full h-full"
                                             allowFullScreen
                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                        />
+                                        /> */}
+                                        <VideoPlayer url={convertToEmbedUrl(contentUrl)} />
                                     </div>
                                 </div>
                             )}
@@ -794,13 +798,12 @@ function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate
                     {lesson.content_type === "text" && (
                         <div className="space-y-2">
                             <Label className="dark:text-slate-300">Content</Label>
-                            <Textarea
+                            <RichTextEditor
                                 value={contentText}
-                                onChange={(e) => setContentText(e.target.value)}
+                                onChange={setContentText}
                                 placeholder="Enter your lesson content here..."
-                                className="min-h-[400px] font-mono dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                                className="min-h-[400px] dark:bg-slate-900 dark:border-slate-700"
                             />
-                            <p className="text-xs text-slate-500 dark:text-slate-400">You can use HTML for formatting</p>
                         </div>
                     )}
 

@@ -22,12 +22,31 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      if (error) throw error;
-      router.push("/dashboard");
+      if (authError) throw authError;
+
+      // Fetch user profile to determine role
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not found");
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Direct redirect based on role
+      if (profile?.role === "admin") {
+        router.push("/admin/dashboard");
+      } else {
+        // Default to student dashboard for all other cases
+        router.push("/student/dashboard");
+      }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {

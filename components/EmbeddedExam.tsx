@@ -2,13 +2,15 @@
 
 import React, { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
+import { useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
 import { useExamSession, useSubmitExam, useSaveAnswer, useUpdateTimer } from "@/hooks/student/useExamSession"
+import { useExamResult } from "@/hooks/useExamResult"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
     Clock, CheckCircle2, Loader2, ArrowLeft, Flag, TrendingUp, Award, Target, BarChart3,
-    Menu, X, AlertTriangle, Save
+    Menu, X, AlertTriangle, Save, ListChecks, Maximize, Minimize
 } from "lucide-react"
 import { renderWithLatex } from "@/lib/renderWithLatex"
 import { useRouter } from "next/navigation"
@@ -30,60 +32,196 @@ interface QuizResult {
     unattempted: number
 }
 
-// Component to show previous result when exam is already submitted
-function PreviousResultView({ examId, userId, onRetake }: { examId: string, userId: string, onRetake: () => void }) {
-    const [result, setResult] = useState<any>(null)
-    const [exam, setExam] = useState<any>(null)
-    const [isLoading, setIsLoading] = useState(true)
+// Component to show detailed question analysis
+function QuestionAnalysisView({
+    structured,
+    responseMap,
+    onBack
+}: {
+    structured: any[],
+    responseMap: Record<string, any>,
+    onBack: () => void
+}) {
+    const [activeSectionIdx, setActiveSectionIdx] = useState(0)
+
+    const allQuestions = structured.flatMap(s => s.questions)
+    const activeSection = structured[activeSectionIdx]
+
+    return (
+        <div className="bg-[#0d1117] rounded-xl border border-slate-800 overflow-hidden shadow-sm flex flex-col h-[80vh]">
+            {/* Header */}
+            <div className="bg-[#161b22] border-b border-slate-800 p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="sm" onClick={onBack} className="text-slate-400 hover:text-white">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Result
+                    </Button>
+                    <h2 className="text-lg font-bold text-white">Question Analysis</h2>
+                </div>
+                <div className="flex gap-2">
+                    {structured.map((s, i) => (
+                        <button
+                            key={s.id}
+                            onClick={() => setActiveSectionIdx(i)}
+                            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${activeSectionIdx === i
+                                ? "bg-blue-600 text-white"
+                                : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                                }`}
+                        >
+                            {s.title}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
+                {activeSection?.questions.map((q: any, idx: number) => {
+                    const userAns = responseMap[q.id]
+                    const isCorrect = checkAnswer(q, userAns)
+                    const isSkipped = userAns === undefined || userAns === null || (Array.isArray(userAns) && userAns.length === 0)
+
+                    return (
+                        <div key={q.id} className={`p-4 md:p-6 rounded-xl border ${isCorrect ? "border-green-900/30 bg-green-900/5" :
+                            isSkipped ? "border-slate-800 bg-slate-800/20" :
+                                "border-rose-900/30 bg-rose-900/5"
+                            }`}>
+                            <div className="flex justify-between items-start mb-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">
+                                        Q{idx + 1}
+                                    </span>
+                                    {isCorrect && <span className="text-xs font-bold text-green-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Correct</span>}
+                                    {!isCorrect && !isSkipped && <span className="text-xs font-bold text-rose-400 flex items-center gap-1"><X className="w-3 h-3" /> Incorrect</span>}
+                                    {isSkipped && <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Skipped</span>}
+                                </div>
+                                <div className="text-xs text-slate-500">
+                                    Marks: {isCorrect ? `+${q.marks}` : isSkipped ? "0" : `-${q.negative_marks}`}
+                                </div>
+                            </div>
+
+                            <div className="text-base text-slate-200 mb-6">
+                                {renderWithLatex(q.question_text)}
+                            </div>
+
+                            <div className="space-y-2 mb-6">
+                                {q.options?.map((opt: any) => {
+                                    const isSelected = isOptionSelected(q, opt.id, userAns)
+                                    const isRightOption = isOptionCorrect(q, opt.id)
+
+                                    let optClass = "border-slate-700 bg-slate-800/50 text-slate-400"
+                                    if (isRightOption) optClass = "border-green-600 bg-green-900/20 text-green-300 ring-1 ring-green-600"
+                                    else if (isSelected && !isRightOption) optClass = "border-rose-600 bg-rose-900/20 text-rose-300 ring-1 ring-rose-600"
+
+                                    return (
+                                        <div key={opt.id} className={`p-3 rounded-lg border flex items-center gap-3 ${optClass}`}>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isRightOption ? "bg-green-600 text-white" :
+                                                isSelected ? "bg-rose-600 text-white" :
+                                                    "border border-slate-600"
+                                                }`}>
+                                                {isRightOption ? <CheckCircle2 className="w-3 h-3" /> : isSelected ? <X className="w-3 h-3" /> : String.fromCharCode(65 + idx)}
+                                            </div>
+                                            <span className="text-sm">{renderWithLatex(opt.option_text)}</span>
+                                        </div>
+                                    )
+                                })}
+                                {q.question_type === "NAT" && (
+                                    <div className="p-3 rounded-lg border border-slate-700 bg-slate-800/50">
+                                        <div className="text-sm text-slate-400 mb-1">Correct Answer: <span className="text-green-400 font-mono">{q.correct_answer}</span></div>
+                                        <div className="text-sm text-slate-400">Your Answer: <span className={`${isCorrect ? "text-green-400" : "text-rose-400"} font-mono`}>{userAns ?? "N/A"}</span></div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {q.explanation && (
+                                <div className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-4">
+                                    <h4 className="text-sm font-bold text-blue-400 mb-2 flex items-center gap-2">
+                                        <TrendingUp className="w-4 h-4" /> Explanation
+                                    </h4>
+                                    <div className="text-sm text-slate-300">
+                                        {renderWithLatex(q.explanation)}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+// Helper functions for analysis
+function checkAnswer(q: any, ans: any) {
+    if (ans === undefined || ans === null || (Array.isArray(ans) && ans.length === 0)) return false
+    if (q.question_type === "NAT") return Number(ans) === Number(q.correct_answer)
+    if (q.question_type === "MCQ") {
+        const correctOpt = q.options.find((o: any) => o.is_correct)?.id
+        return ans === correctOpt
+    }
+    if (q.question_type === "MSQ") {
+        const correctIds = q.options.filter((o: any) => o.is_correct).map((o: any) => o.id).sort()
+        const ansIds = (Array.isArray(ans) ? ans : [ans]).sort()
+        return correctIds.length === ansIds.length && correctIds.every((x: string, i: number) => x === ansIds[i])
+    }
+    return false
+}
+
+function isOptionSelected(q: any, optId: string, ans: any) {
+    if (!ans) return false
+    if (q.question_type === "MCQ") return ans === optId
+    if (q.question_type === "MSQ") return (Array.isArray(ans) ? ans : [ans]).includes(optId)
+    return false
+}
+
+function isOptionCorrect(q: any, optId: string) {
+    return q.options?.find((o: any) => o.id === optId)?.is_correct
+}
+
+export function PreviousResultView({
+    examId,
+    userId,
+    onRetake,
+    attemptId,
+    initialResult
+}: {
+    examId: string,
+    userId: string,
+    onRetake: () => void,
+    attemptId?: string,
+    initialResult?: any
+}) {
+    const [effectiveAttemptId, setEffectiveAttemptId] = useState<string | null>(attemptId || null)
+    const [showAnalysis, setShowAnalysis] = useState(false)
     const supabase = createClient()
 
+    // If no attemptId provided, fetch the latest one
     useEffect(() => {
-        const fetchPreviousResult = async () => {
-            try {
-                // Get the most recent attempt
-                const { data: attempts } = await supabase
-                    .from("exam_attempts")
-                    .select("id, submitted_at")
-                    .eq("exam_id", examId)
-                    .eq("user_id", userId)
-                    .eq("status", "submitted")
-                    .order("submitted_at", { ascending: false })
-                    .limit(1)
+        if (attemptId) {
+            setEffectiveAttemptId(attemptId)
+            return
+        }
 
-                if (attempts && attempts.length > 0) {
-                    // Get the result for this attempt
-                    const { data: resultData } = await supabase
-                        .from("results")
-                        .select("*")
-                        .eq("attempt_id", attempts[0].id)
-                        .single()
+        const fetchLatestAttempt = async () => {
+            const { data: attempts } = await supabase
+                .from("exam_attempts")
+                .select("id")
+                .eq("exam_id", examId)
+                .eq("student_id", userId)
+                .eq("status", "submitted")
+                .order("created_at", { ascending: false })
+                .limit(1)
 
-                    setResult(resultData)
-                }
-
-                // Get exam details
-                const { data: examData } = await supabase
-                    .from("exams")
-                    .select("*")
-                    .eq("id", examId)
-                    .single()
-
-                setExam(examData)
-            } catch (error) {
-                console.error("Error fetching previous result:", error)
-            } finally {
-                setIsLoading(false)
+            if (attempts && attempts.length > 0) {
+                setEffectiveAttemptId(attempts[0].id)
             }
         }
 
-        fetchPreviousResult()
-    }, [examId, userId, supabase])
+        fetchLatestAttempt()
+    }, [examId, userId, attemptId, supabase])
 
-    const handleRetake = () => {
-        onRetake()
-    }
+    const { data: resultData, isLoading } = useExamResult(effectiveAttemptId || "")
 
-    if (isLoading) {
+    if (isLoading || !effectiveAttemptId) {
         return (
             <div className="flex items-center justify-center h-96">
                 <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
@@ -91,13 +229,13 @@ function PreviousResultView({ examId, userId, onRetake }: { examId: string, user
         )
     }
 
-    if (!result || !exam) {
+    if (!resultData || !resultData.result) {
         return (
             <div className="flex items-center justify-center h-96">
                 <div className="text-center p-8 bg-[#161b22] rounded-xl border border-slate-800">
-                    <h3 className="text-lg font-bold text-amber-400 mb-2">Quiz Already Completed</h3>
-                    <p className="text-slate-400 text-sm mb-4">You have already submitted this quiz.</p>
-                    <Button onClick={handleRetake} className="bg-indigo-600 hover:bg-indigo-700">
+                    <h3 className="text-lg font-bold text-amber-400 mb-2">Result Not Found</h3>
+                    <p className="text-slate-400 text-sm mb-4">Could not find the result for this attempt.</p>
+                    <Button onClick={onRetake} className="bg-indigo-600 hover:bg-indigo-700">
                         Retake Quiz
                     </Button>
                 </div>
@@ -105,11 +243,11 @@ function PreviousResultView({ examId, userId, onRetake }: { examId: string, user
         )
     }
 
-    const formatTime = (seconds: number) => {
-        const h = Math.floor(seconds / 3600)
-        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0")
-        const sec = (seconds % 60).toString().padStart(2, "0")
-        return h > 0 ? `${h}:${m}:${sec}` : `${m}:${sec}`
+    const { result, structured, responseMap } = resultData
+    const passed = result.passed ?? (result.percentage >= 40)
+
+    if (showAnalysis) {
+        return <QuestionAnalysisView structured={structured} responseMap={responseMap} onBack={() => setShowAnalysis(false)} />
     }
 
     return (
@@ -117,7 +255,9 @@ function PreviousResultView({ examId, userId, onRetake }: { examId: string, user
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 text-center">
                 <Award className="w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Quiz Result</h2>
-                <p className="text-indigo-100">You have already completed this quiz</p>
+                <p className="text-indigo-100">
+                    Attempted on {new Date(result.created_at).toLocaleDateString()}
+                </p>
             </div>
 
             <div className="p-4 md:p-6 space-y-6">
@@ -125,7 +265,7 @@ function PreviousResultView({ examId, userId, onRetake }: { examId: string, user
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                     <div className="bg-gradient-to-br from-blue-900/50 to-blue-800/50 p-3 md:p-4 rounded-xl border border-blue-700 text-center">
                         <Target className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-blue-400" />
-                        <div className="text-xl md:text-2xl font-bold text-blue-300">{result.score || 0}</div>
+                        <div className="text-xl md:text-2xl font-bold text-blue-300">{result.score ?? result.obtained_marks ?? 0}</div>
                         <div className="text-xs text-blue-400 font-medium">Score</div>
                     </div>
                     <div className="bg-gradient-to-br from-purple-900/50 to-purple-800/50 p-3 md:p-4 rounded-xl border border-purple-700 text-center">
@@ -133,8 +273,8 @@ function PreviousResultView({ examId, userId, onRetake }: { examId: string, user
                         <div className="text-xl md:text-2xl font-bold text-purple-300">{result.percentage?.toFixed(1) || 0}%</div>
                         <div className="text-xs text-purple-400 font-medium">Percentage</div>
                     </div>
-                    <div className={`bg-gradient-to-br p-3 md:p-4 rounded-xl border text-center col-span-2 md:col-span-1 ${result.passed ? 'from-green-900/50 to-green-800/50 border-green-700' : 'from-amber-900/50 to-amber-800/50 border-amber-700'}`}>
-                        {result.passed ? (
+                    <div className={`bg-gradient-to-br p-3 md:p-4 rounded-xl border text-center col-span-2 md:col-span-1 ${passed ? 'from-green-900/50 to-green-800/50 border-green-700' : 'from-amber-900/50 to-amber-800/50 border-amber-700'}`}>
+                        {passed ? (
                             <>
                                 <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-green-400" />
                                 <div className="text-xl md:text-2xl font-bold text-green-300">Passed</div>
@@ -149,22 +289,67 @@ function PreviousResultView({ examId, userId, onRetake }: { examId: string, user
                     </div>
                 </div>
 
-                {/* Pass/Fail Message */}
-                <div className={`p-4 rounded-xl border-2 text-center ${result.passed ? 'bg-green-900/20 border-green-600' : 'bg-amber-900/20 border-amber-600'}`}>
-                    <div className={`text-base md:text-lg font-bold ${result.passed ? 'text-green-400' : 'text-amber-400'}`}>
-                        {result.passed ? '🎉 Congratulations! You Passed!' : '📚 Try Again to Improve!'}
+                {/* Section Analysis */}
+                {structured && structured.length > 0 && (
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                            <BarChart3 className="w-5 h-5 text-indigo-400" />
+                            Section Analysis
+                        </h3>
+                        <div className="grid gap-4">
+                            {structured.map((section: any) => {
+                                const secResult = section.result
+                                const totalQuestions = section.questions.length
+
+                                return (
+                                    <div key={section.id} className="bg-[#161b22] p-4 rounded-xl border border-slate-800">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="font-medium text-slate-200">{section.title}</h4>
+                                            <span className="text-xs text-slate-500">{totalQuestions} Questions</span>
+                                        </div>
+
+                                        {secResult ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                                    <div className="text-slate-400 text-xs">Score</div>
+                                                    <div className="font-semibold text-blue-400">{secResult.obtained_marks} / {secResult.total_marks}</div>
+                                                </div>
+                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                                    <div className="text-slate-400 text-xs">Correct</div>
+                                                    <div className="font-semibold text-green-400">{secResult.correct_answers}</div>
+                                                </div>
+                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                                    <div className="text-slate-400 text-xs">Wrong</div>
+                                                    <div className="font-semibold text-rose-400">{secResult.wrong_answers}</div>
+                                                </div>
+                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
+                                                    <div className="text-slate-400 text-xs">Unanswered</div>
+                                                    <div className="font-semibold text-slate-400">{secResult.unanswered}</div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-sm text-slate-500 italic">
+                                                No detailed result available for this section.
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
                     </div>
-                    <p className={`text-xs md:text-sm mt-1 ${result.passed ? 'text-green-300' : 'text-amber-300'}`}>
-                        {result.passed
-                            ? 'You have successfully completed this quiz.'
-                            : 'Review the material and retake the quiz to improve your score.'}
-                    </p>
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row justify-center gap-3 pt-4">
                     <Button
-                        onClick={handleRetake}
+                        onClick={() => setShowAnalysis(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                        <ListChecks className="w-4 h-4 mr-2" />
+                        Review Questions
+                    </Button>
+                    <Button
+                        onClick={onRetake}
                         className="bg-indigo-600 hover:bg-indigo-700"
                     >
                         <Flag className="w-4 w-4 mr-2" />
@@ -183,9 +368,18 @@ function PreviousResultView({ examId, userId, onRetake }: { examId: string, user
     )
 }
 
-export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
+interface EmbeddedExamProps {
+    examId: string
+    onExit?: () => void
+    isRetake?: boolean
+}
+
+export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamProps) {
+    const queryClient = useQueryClient()
     const supabase = createClient()
     const router = useRouter()
+    const examContainerRef = React.useRef<HTMLDivElement>(null)
+    const [isFullscreen, setIsFullscreen] = useState(false)
     const [userId, setUserId] = useState<string | null>(null)
     const [responses, setResponses] = useState<Record<string, any>>({})
     const [marked, setMarked] = useState<Record<string, boolean>>({})
@@ -194,10 +388,10 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
     const [secondsLeft, setSecondsLeft] = useState(0)
     const [showSubmitDialog, setShowSubmitDialog] = useState(false)
     const [isTimerActive, setIsTimerActive] = useState(false)
-    const [quizResult, setQuizResult] = useState<QuizResult | null>(null)
     const [showResults, setShowResults] = useState(false)
     const [paletteOpenMobile, setPaletteOpenMobile] = useState(false)
-    const [retakeAttempt, setRetakeAttempt] = useState(0) // Track retake attempts
+    const [retakeAttempt, setRetakeAttempt] = useState(isRetake ? 1 : 0) // Track retake attempts
+    const [submittedAttemptId, setSubmittedAttemptId] = useState<string | null>(null)
 
     // Auth check
     useEffect(() => {
@@ -209,7 +403,7 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
         checkUser()
     }, [router, supabase])
 
-    const { data: sessionData, isLoading, error } = useExamSession(examId, userId, retakeAttempt > 0)
+    const { data: sessionData, isLoading, error } = useExamSession(examId, userId, retakeAttempt > 0, !showResults)
     const { mutate: submitExam, isPending: isSubmitting } = useSubmitExam()
     const { mutate: saveAnswer, isPending: isSaving } = useSaveAnswer()
     const { mutate: updateTimer } = useUpdateTimer()
@@ -248,6 +442,31 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
 
         return () => clearInterval(timer)
     }, [isTimerActive, secondsLeft])
+
+    // Fullscreen handler
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement)
+        }
+        document.addEventListener('fullscreenchange', handleFullscreenChange)
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+    }, [])
+
+    const toggleFullscreen = async () => {
+        if (!examContainerRef.current) return
+
+        if (!document.fullscreenElement) {
+            try {
+                await examContainerRef.current.requestFullscreen()
+            } catch (err) {
+                console.error("Error attempting to enable fullscreen:", err)
+            }
+        } else {
+            if (document.exitFullscreen) {
+                await document.exitFullscreen()
+            }
+        }
+    }
 
     const allQuestions = sessionData?.sections.flatMap((s) => s.questions) || []
     const currentQuestion = allQuestions[activeQuestionIdx]
@@ -314,36 +533,8 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
                     .single()
 
                 if (examData?.show_results_immediately !== false) {
-                    // Fetch detailed result
-                    const { data: resultData } = await supabase
-                        .from("results")
-                        .select("*")
-                        .eq("id", result.id)
-                        .single()
-
-                    if (resultData) {
-                        const totalQuestions = allQuestions.length
-                        const answered = Object.values(responses).filter(v => v !== null && (Array.isArray(v) ? v.length > 0 : true)).length
-
-                        // Calculate correct answers based on score ratio
-                        const scoreRatio = resultData.total_marks > 0 ? (resultData.score / resultData.total_marks) : 0
-                        const correctAnswers = Math.max(0, Math.round(scoreRatio * totalQuestions))
-                        const wrongAnswers = Math.max(0, answered - correctAnswers)
-                        const unattempted = Math.max(0, totalQuestions - answered)
-
-                        setQuizResult({
-                            id: resultData.id,
-                            score: resultData.score || 0,
-                            total_marks: resultData.total_marks || 0,
-                            percentage: resultData.percentage || 0,
-                            passed: resultData.passed || false,
-                            time_taken: sessionData.exam.duration_minutes * 60 - secondsLeft,
-                            correct_answers: correctAnswers,
-                            wrong_answers: wrongAnswers,
-                            unattempted: unattempted
-                        })
-                        setShowResults(true)
-                    }
+                    setSubmittedAttemptId(sessionData.attempt.id)
+                    setShowResults(true)
                 } else {
                     toast.info("Results will be available once the instructor releases them")
                     if (onExit) onExit()
@@ -377,7 +568,10 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
             return <PreviousResultView
                 examId={examId}
                 userId={userId}
-                onRetake={() => setRetakeAttempt(prev => prev + 1)}
+                onRetake={() => {
+                    queryClient.invalidateQueries({ queryKey: ["exam-session"] })
+                    setRetakeAttempt(prev => prev + 1)
+                }}
             />
         }
 
@@ -392,115 +586,25 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
     }
 
     // Show Results View
-    if (showResults && quizResult) {
+    if (showResults && submittedAttemptId && userId) {
         return (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 text-center">
-                    <Award className="w-16 h-16 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold mb-2">Quiz Completed!</h2>
-                    <p className="text-green-100">Great job! Here are your results</p>
-                </div>
-
-                <div className="p-4 md:p-6 space-y-6">
-                    {/* Score Card */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 md:p-4 rounded-xl border border-blue-200 text-center">
-                            <Target className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-blue-600" />
-                            <div className="text-xl md:text-2xl font-bold text-blue-900">{quizResult.score}</div>
-                            <div className="text-xs text-blue-600 font-medium">Score</div>
-                        </div>
-                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-3 md:p-4 rounded-xl border border-purple-200 text-center">
-                            <TrendingUp className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-purple-600" />
-                            <div className="text-xl md:text-2xl font-bold text-purple-900">{quizResult.percentage.toFixed(1)}%</div>
-                            <div className="text-xs text-purple-600 font-medium">Percentage</div>
-                        </div>
-                        <div className="bg-gradient-to-br from-green-50 to-green-100 p-3 md:p-4 rounded-xl border border-green-200 text-center">
-                            <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-green-600" />
-                            <div className="text-xl md:text-2xl font-bold text-green-900">{quizResult.correct_answers || 0}</div>
-                            <div className="text-xs text-green-600 font-medium">Correct</div>
-                        </div>
-                        <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-3 md:p-4 rounded-xl border border-amber-200 text-center">
-                            <Clock className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-amber-600" />
-                            <div className="text-xl md:text-2xl font-bold text-amber-900">{formatTime(quizResult.time_taken || 0)}</div>
-                            <div className="text-xs text-amber-600 font-medium">Time Taken</div>
-                        </div>
-                    </div>
-
-                    {/* Analytics */}
-                    <div className="bg-slate-50 p-4 md:p-6 rounded-xl border border-slate-200">
-                        <div className="flex items-center gap-2 mb-4">
-                            <BarChart3 className="w-5 h-5 text-slate-600" />
-                            <h3 className="font-bold text-slate-800">Performance Analytics</h3>
-                        </div>
-                        <div className="space-y-3">
-                            <div>
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-slate-600">Correct Answers</span>
-                                    <span className="font-semibold text-green-600">{quizResult.correct_answers || 0} / {allQuestions.length}</span>
-                                </div>
-                                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-green-500 rounded-full transition-all"
-                                        style={{ width: `${((quizResult.correct_answers || 0) / allQuestions.length) * 100}%` }}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-slate-600">Wrong Answers</span>
-                                    <span className="font-semibold text-red-600">{quizResult.wrong_answers || 0}</span>
-                                </div>
-                                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-red-500 rounded-full transition-all"
-                                        style={{ width: `${((quizResult.wrong_answers || 0) / allQuestions.length) * 100}%` }}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <div className="flex justify-between text-sm mb-1">
-                                    <span className="text-slate-600">Unattempted</span>
-                                    <span className="font-semibold text-slate-600">{quizResult.unattempted || 0}</span>
-                                </div>
-                                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-slate-400 rounded-full transition-all"
-                                        style={{ width: `${((quizResult.unattempted || 0) / allQuestions.length) * 100}%` }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Pass/Fail Status */}
-                    <div className={`p-4 rounded-xl border-2 text-center ${quizResult.passed ? 'bg-green-50 border-green-500' : 'bg-amber-50 border-amber-500'}`}>
-                        <div className={`text-base md:text-lg font-bold ${quizResult.passed ? 'text-green-900' : 'text-amber-900'}`}>
-                            {quizResult.passed ? '🎉 Congratulations! You Passed!' : '📚 Keep Practicing!'}
-                        </div>
-                        <p className={`text-xs md:text-sm mt-1 ${quizResult.passed ? 'text-green-700' : 'text-amber-700'}`}>
-                            {quizResult.passed
-                                ? 'You have successfully completed this quiz.'
-                                : 'Review the material and try again to improve your score.'}
-                        </p>
-                    </div>
-
-                    {/* Action Button */}
-                    <div className="flex justify-center pt-4">
-                        <Button
-                            onClick={() => onExit ? onExit() : window.location.reload()}
-                            className="bg-indigo-600 hover:bg-indigo-700 w-full md:w-auto"
-                        >
-                            Continue Learning
-                        </Button>
-                    </div>
-                </div>
-            </div>
+            <PreviousResultView
+                examId={examId}
+                userId={userId}
+                attemptId={submittedAttemptId}
+                onRetake={() => {
+                    queryClient.invalidateQueries({ queryKey: ["exam-session"] })
+                    setShowResults(false)
+                    setSubmittedAttemptId(null)
+                    setRetakeAttempt(prev => prev + 1)
+                }}
+            />
         )
     }
 
     // Quiz Interface - Dark theme with collapsible sidebar
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-[#0d1117] text-white rounded-xl overflow-hidden border border-slate-800">
+        <div ref={examContainerRef} className="grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-[#0d1117] text-white rounded-xl overflow-hidden border border-slate-800 h-full">
             {/* LEFT PANEL */}
             <div className="p-3 md:p-6 relative bg-[#0d1117]">
                 {/* HEADER NAV */}
@@ -552,6 +656,13 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
                             className="hidden sm:block bg-rose-600 hover:bg-rose-700 text-white px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-colors shadow-sm"
                         >
                             Submit
+                        </button>
+                        <button
+                            onClick={toggleFullscreen}
+                            className="p-2 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+                            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                        >
+                            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                         </button>
                         <button
                             onClick={() => setPaletteOpenMobile(true)}
@@ -815,89 +926,80 @@ export function EmbeddedExam({ examId, onExit }: EmbeddedExamProps) {
                 )}
             </AnimatePresence>
 
-            {/* SUBMIT DIALOG */}
+            {/* SUBMIT CONFIRMATION DIALOG */}
             <AnimatePresence>
                 {showSubmitDialog && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                    >
+                    <>
                         <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowSubmitDialog(false)}
+                            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
                         >
-                            {isSubmitting ? (
-                                <div className="p-10 flex flex-col items-center justify-center text-center">
-                                    <div className="relative w-20 h-20 mb-6">
-                                        <div className="absolute inset-0 border-4 border-indigo-100 rounded-full"></div>
-                                        <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"></div>
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <CheckCircle2 className="w-8 h-8 text-indigo-600 opacity-50" />
-                                        </div>
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl overflow-hidden"
+                            >
+                                <div className="p-6 text-center">
+                                    <div className="w-16 h-16 bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <AlertTriangle className="w-8 h-8 text-rose-500" />
                                     </div>
-                                    <h3 className="text-2xl font-bold text-slate-800 mb-2">Submitting Exam</h3>
-                                    <p className="text-slate-500">Please wait while we securely save your answers and calculate your score.</p>
-                                    <div className="mt-6 flex items-center gap-2 text-xs font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
-                                        <Loader2 className="w-3 h-3 animate-spin" />
-                                        Processing results...
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="bg-slate-50 p-6 border-b border-slate-100">
-                                        <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                                            <AlertTriangle className="w-5 h-5 text-amber-500" />
-                                            Submit Exam?
-                                        </h3>
-                                        <p className="text-slate-600 mt-2 text-sm">
-                                            Are you sure you want to submit? You won't be able to change your answers after this.
-                                        </p>
-                                    </div>
+                                    <h3 className="text-xl font-bold text-white mb-2">Submit Exam?</h3>
+                                    <p className="text-slate-400 mb-6">
+                                        Are you sure you want to submit? You won't be able to change your answers after this.
+                                    </p>
 
-                                    <div className="p-6 space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-                                                <div className="text-green-600 text-xs font-semibold uppercase tracking-wider mb-1">Answered</div>
-                                                <div className="text-2xl font-bold text-green-700">
-                                                    {Object.values(responses).filter(v => v !== null && (Array.isArray(v) ? v.length > 0 : true)).length}
-                                                </div>
-                                            </div>
-                                            <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                                                <div className="text-amber-600 text-xs font-semibold uppercase tracking-wider mb-1">Marked</div>
-                                                <div className="text-2xl font-bold text-amber-700">
-                                                    {Object.values(marked).filter(Boolean).length}
-                                                </div>
-                                            </div>
+                                    <div className="bg-slate-800/50 rounded-lg p-4 mb-6 text-sm">
+                                        <div className="flex justify-between mb-2">
+                                            <span className="text-slate-400">Answered</span>
+                                            <span className="text-green-400 font-semibold">
+                                                {Object.values(responses).filter(v => v !== null && (Array.isArray(v) ? v.length > 0 : true)).length}
+                                            </span>
                                         </div>
-
-                                        <div className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                            <span className="text-slate-600 font-medium">Total Questions</span>
-                                            <span className="text-xl font-bold text-slate-800">{allQuestions.length}</span>
+                                        <div className="flex justify-between mb-2">
+                                            <span className="text-slate-400">Marked for Review</span>
+                                            <span className="text-amber-400 font-semibold">
+                                                {Object.values(marked).filter(Boolean).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-slate-400">Unanswered</span>
+                                            <span className="text-slate-300 font-semibold">
+                                                {allQuestions.length - Object.values(responses).filter(v => v !== null && (Array.isArray(v) ? v.length > 0 : true)).length}
+                                            </span>
                                         </div>
                                     </div>
 
-                                    <div className="p-6 pt-2 flex justify-end gap-3">
+                                    <div className="flex gap-3">
                                         <button
                                             onClick={() => setShowSubmitDialog(false)}
-                                            className="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors"
+                                            className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 font-medium transition-colors"
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             onClick={performSubmit}
-                                            className="px-5 py-2.5 bg-rose-500 text-white rounded-xl font-medium hover:bg-rose-600 transition-colors shadow-lg shadow-rose-200"
+                                            disabled={isSubmitting}
+                                            className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-lg shadow-rose-900/20 transition-colors flex items-center justify-center gap-2"
                                         >
-                                            Yes, Submit Exam
+                                            {isSubmitting ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Submitting...
+                                                </>
+                                            ) : (
+                                                "Submit Now"
+                                            )}
                                         </button>
                                     </div>
-                                </>
-                            )}
+                                </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
+                    </>
                 )}
             </AnimatePresence>
         </div>

@@ -3,15 +3,9 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, BookOpen, User } from "lucide-react";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Search, BookOpen, User, Clock, Star, ChevronRight, Filter } from "lucide-react";
+import { Header } from "@/components/landing/Header";
+import { Footer } from "@/components/landing/Footer";
 
 export default async function MarketplacePage({
     searchParams,
@@ -42,129 +36,167 @@ export default async function MarketplacePage({
         "Design",
         "Marketing",
         "Academic",
+        "Mathematics",
+        "Data Science"
     ];
 
     return (
-        <div className="min-h-screen bg-background">
-            <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-10">
-                <div className="container mx-auto py-4 flex justify-between items-center">
-                    <Link href="/" className="font-bold text-xl flex items-center gap-2">
-                        <BookOpen className="h-6 w-6" />
-                        <span>Math4Code LMS</span>
-                    </Link>
-                    <div className="flex gap-4">
-                        <Link href="/auth/login">
-                            <Button variant="ghost">Log in</Button>
-                        </Link>
-                        <Link href="/auth/signup">
-                            <Button>Sign up</Button>
-                        </Link>
-                    </div>
-                </div>
-            </header>
+        <div className="min-h-screen bg-slate-50">
+            <Header />
 
-            <main className="container mx-auto py-10">
-                <div className="text-center mb-12">
-                    <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
-                        Find the perfect course for you
-                    </h1>
-                    <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                        Explore our wide range of courses taught by expert instructors.
-                    </p>
-                </div>
+            {/* Hero Section */}
+            <div className="pt-28 pb-12 bg-[#0f172a] text-white relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-20"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-violet-500/10"></div>
 
-                <div className="flex flex-col md:flex-row gap-8 mb-10">
-                    <div className="w-full md:w-1/4 space-y-6">
-                        <div>
-                            <h3 className="font-semibold mb-2">Search</h3>
-                            <form className="relative">
-                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
+                <div className="container max-w-[1200px] mx-auto px-4 md:px-6 relative z-10">
+                    <div className="max-w-3xl">
+                        <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400">
+                            Explore Our Courses
+                        </h1>
+                        <p className="text-lg text-slate-400 mb-8">
+                            Master mathematics and coding with our expertly crafted courses. From basics to advanced concepts, find the perfect path for your learning journey.
+                        </p>
+
+                        {/* Search Bar in Hero */}
+                        <div className="relative max-w-xl">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <Search className="h-5 w-5 text-slate-500" />
+                            </div>
+                            <form>
+                                <input
                                     type="search"
                                     name="q"
-                                    placeholder="Search courses..."
-                                    className="pl-8"
                                     defaultValue={q}
+                                    placeholder="Search for courses, topics, or instructors..."
+                                    className="w-full pl-11 pr-4 py-4 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-lg backdrop-blur-sm"
                                 />
                             </form>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <main className="container max-w-[1200px] mx-auto px-4 md:px-6 py-12">
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Sidebar Filters - Desktop */}
+                    <div className="hidden lg:block w-64 shrink-0 space-y-8">
                         <div>
-                            <h3 className="font-semibold mb-2">Categories</h3>
-                            <div className="flex flex-wrap gap-2">
-                                <Link href="/courses">
-                                    <Badge variant={!category ? "default" : "secondary"}>
-                                        All
-                                    </Badge>
+                            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                <Filter className="w-4 h-4" /> Filters
+                            </h3>
+                            <div className="space-y-2">
+                                <Link href="/courses" className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!category ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100"}`}>
+                                    All Categories
                                 </Link>
                                 {categories.map((cat) => (
-                                    <Link key={cat} href={`/courses?category=${cat.toLowerCase()}`}>
-                                        <Badge
-                                            variant={
-                                                category === cat.toLowerCase() ? "default" : "secondary"
-                                            }
-                                        >
-                                            {cat}
-                                        </Badge>
+                                    <Link
+                                        key={cat}
+                                        href={`/courses?category=${cat.toLowerCase()}`}
+                                        className={`block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${category === cat.toLowerCase() ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100"}`}
+                                    >
+                                        {cat}
                                     </Link>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    <div className="w-full md:w-3/4">
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {/* Mobile Filters */}
+                    <div className="lg:hidden overflow-x-auto pb-4 -mx-4 px-4 scrollbar-hide">
+                        <div className="flex gap-2">
+                            <Link href="/courses">
+                                <Badge variant={!category ? "default" : "outline"} className="whitespace-nowrap py-2 px-4 text-sm">
+                                    All
+                                </Badge>
+                            </Link>
+                            {categories.map((cat) => (
+                                <Link key={cat} href={`/courses?category=${cat.toLowerCase()}`}>
+                                    <Badge variant={category === cat.toLowerCase() ? "default" : "outline"} className="whitespace-nowrap py-2 px-4 text-sm">
+                                        {cat}
+                                    </Badge>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Course Grid */}
+                    <div className="flex-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             {courses?.map((course) => (
-                                <Link key={course.id} href={`/courses/${course.id}`}>
-                                    <Card className="h-full flex flex-col hover:shadow-lg transition-shadow">
-                                        <div className="aspect-video bg-muted relative overflow-hidden rounded-t-lg">
+                                <Link key={course.id} href={`/courses/${course.id}`} className="group h-full">
+                                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 h-full flex flex-col transform hover:-translate-y-1">
+                                        {/* Thumbnail */}
+                                        <div className="aspect-video bg-slate-100 relative overflow-hidden">
                                             {course.thumbnail_url ? (
                                                 <img
                                                     src={course.thumbnail_url}
                                                     alt={course.title}
-                                                    className="object-cover w-full h-full"
+                                                    className="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500"
                                                 />
                                             ) : (
-                                                <div className="flex items-center justify-center h-full text-muted-foreground">
-                                                    <BookOpen className="h-12 w-12" />
+                                                <div className="flex items-center justify-center h-full text-slate-400 bg-slate-50">
+                                                    <BookOpen className="h-12 w-12 opacity-20" />
                                                 </div>
                                             )}
+                                            <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-md text-xs font-bold text-indigo-600 shadow-sm">
+                                                {course.category || "Course"}
+                                            </div>
                                         </div>
-                                        <CardHeader>
-                                            <div className="flex justify-between items-start mb-2">
-                                                <Badge variant="outline">{course.category}</Badge>
-                                                <span className="font-bold text-primary">
+
+                                        {/* Content */}
+                                        <div className="p-5 flex flex-col flex-grow">
+                                            <h3 className="font-bold text-lg text-slate-900 mb-2 line-clamp-2 group-hover:text-indigo-600 transition-colors">
+                                                {course.title}
+                                            </h3>
+                                            <p className="text-slate-500 text-sm line-clamp-2 mb-4 flex-grow">
+                                                {course.description}
+                                            </p>
+
+                                            {/* Meta Info */}
+                                            <div className="flex items-center gap-4 text-xs text-slate-500 mb-4 border-t border-slate-100 pt-4">
+                                                <div className="flex items-center gap-1">
+                                                    <User className="w-3 h-3" />
+                                                    <span className="truncate max-w-[100px]">{(course.profiles as any)?.full_name || "Instructor"}</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span>12h 30m</span>
+                                                </div>
+                                                <div className="flex items-center gap-1 ml-auto text-amber-500 font-medium">
+                                                    <Star className="w-3 h-3 fill-current" />
+                                                    <span>4.8</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Price & Action */}
+                                            <div className="flex items-center justify-between mt-auto">
+                                                <div className="text-lg font-bold text-slate-900">
                                                     {course.price > 0 ? `$${course.price}` : "Free"}
+                                                </div>
+                                                <span className="text-sm font-medium text-indigo-600 flex items-center gap-1 group-hover:gap-2 transition-all">
+                                                    View Details <ChevronRight className="w-4 h-4" />
                                                 </span>
                                             </div>
-                                            <CardTitle className="line-clamp-2">{course.title}</CardTitle>
-                                            <CardDescription className="line-clamp-2">
-                                                {course.description}
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="flex-grow">
-                                            <div className="flex items-center text-sm text-muted-foreground">
-                                                <User className="mr-2 h-4 w-4" />
-                                                {(course.profiles as any)?.full_name || "Instructor"}
-                                            </div>
-                                        </CardContent>
-                                        <CardFooter>
-                                            <Button className="w-full">View Course</Button>
-                                        </CardFooter>
-                                    </Card>
+                                        </div>
+                                    </div>
                                 </Link>
                             ))}
 
                             {(!courses || courses.length === 0) && (
-                                <div className="col-span-full text-center py-12">
-                                    <p className="text-muted-foreground">
-                                        No courses found matching your criteria.
-                                    </p>
+                                <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
+                                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Search className="w-8 h-8 text-slate-400" />
+                                    </div>
+                                    <h3 className="text-lg font-medium text-slate-900 mb-1">No courses found</h3>
+                                    <p className="text-slate-500">Try adjusting your search or filters to find what you're looking for.</p>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }

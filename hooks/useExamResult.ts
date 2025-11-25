@@ -71,14 +71,38 @@ export async function fetchExamResult(attemptId: string) {
     if (!questions?.length) throw new Error("Questions not found")
     console.log("Loaded", questions.length, "questions")
 
-    // 5. Structure the data by sections
+    // 5. Fetch result summary
+    const { data: resultSummary, error: resultError } = await supabase
+      .from("results")
+      .select("*")
+      .eq("attempt_id", attemptId)
+      .single()
+
+    if (resultError && resultError.code !== 'PGRST116') {
+      console.error("Error fetching result summary:", resultError)
+    }
+
+    // 6. Fetch section results
+    let sectionResults: any[] = []
+    if (resultSummary) {
+      const { data: secResults, error: secError } = await supabase
+        .from("section_results")
+        .select("*")
+        .eq("result_id", resultSummary.id)
+
+      if (secError) console.error("Error fetching section results:", secError)
+      if (secResults) sectionResults = secResults
+    }
+
+    // 7. Structure the data by sections
     const structured = sections.map((s) => ({
       ...s,
       questions: questions.filter((q) => q.section_id === s.id),
+      result: sectionResults.find(sr => sr.section_id === s.id)
     }))
 
     console.log("Result data structured successfully")
-    return { attempt, responseMap, structured }
+    return { attempt, responseMap, structured, result: resultSummary }
   } catch (error) {
     console.error("Error in fetchExamResult:", error)
     throw error

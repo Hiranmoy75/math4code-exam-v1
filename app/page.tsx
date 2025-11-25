@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import { Header } from "@/components/landing/Header";
 import { Hero } from "@/components/landing/Hero";
 import { FeaturesGrid } from "@/components/landing/Features";
 import { MagicSection } from "@/components/landing/MagicSection";
@@ -14,6 +15,7 @@ import { Footer } from "@/components/landing/Footer";
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
+      <Header />
       <Hero />
       <FeaturesGrid />
       <MagicSection />
