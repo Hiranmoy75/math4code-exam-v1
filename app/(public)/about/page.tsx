@@ -8,7 +8,7 @@ import { CheckCircle2, Users, Trophy, Target } from "lucide-react";
 export default function AboutPage() {
     return (
         <main className="min-h-screen bg-white text-slate-900">
-            <Header />
+
 
             {/* Hero Section */}
             <div className="pt-32 pb-20 px-6 bg-slate-50">

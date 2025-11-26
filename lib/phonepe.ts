@@ -45,8 +45,17 @@ export async function createPayment(orderId: string, amount: number) {
     console.log("📦 PhonePe Response:", response.data);
     return response.data;
   } catch (error: any) {
-    console.error("❌ PhonePe Error:", error.response?.data || error.message);
-    console.error("Payload:", JSON.stringify(payload, null, 2));
+    console.error("❌ PhonePe Payment Initiation Error:");
+    console.error("Message:", error.message);
+    if (error.response) {
+      console.error("Status:", error.response.status);
+      console.error("Data:", JSON.stringify(error.response.data, null, 2));
+      console.error("Headers:", JSON.stringify(error.response.headers, null, 2));
+    } else if (error.request) {
+      console.error("No response received. Request:", error.request);
+    }
+    console.error("Payload Sent:", JSON.stringify(payload, null, 2));
+    console.error("X-VERIFY:", xVerify);
     return { success: false, error: error.response?.data || error.message };
   }
 }

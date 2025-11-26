@@ -7,7 +7,12 @@ export const Footer: React.FC = () => (
     <footer className="bg-slate-900 text-slate-300">
         <div className="max-w-7xl mx-auto px-6 py-12 grid md:grid-cols-3 gap-6">
             <div>
-                <div className="text-2xl font-bold text-white">Math4Code</div>
+                <div className="flex items-center gap-2 text-2xl font-bold text-white">
+                    <div className="w-auto px-2 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white font-bold text-lg">
+                        Σ✨{'}'}
+                    </div>
+                    Math4Code
+                </div>
                 <div className="mt-2 text-sm">Premium exam & practice platform for serious aspirants.</div>
             </div>
 

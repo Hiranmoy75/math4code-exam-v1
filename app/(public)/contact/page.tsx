@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 export default function ContactPage() {
     return (
         <main className="min-h-screen bg-white text-slate-900">
-            <Header />
+
 
             <div className="pt-32 pb-20 px-6">
                 <div className="max-w-7xl mx-auto">

@@ -14,7 +14,9 @@ import {
   LogOut,
   X,
   GraduationCap,
-  Layers
+  Layers,
+  Award,
+  TrendingUp
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,8 +37,14 @@ const iconMap = {
   settings: Settings,
   question: BookCheck,
   layers: Layers,
-  graduation: GraduationCap
+  graduation: GraduationCap,
+  bookopen: BookOpen,
+  trendingup: TrendingUp,
+  award: Award,
+
 };
+
+
 
 export default function Sidebar({
   menuItems,
@@ -74,8 +82,8 @@ export default function Sidebar({
       >
         {/* Logo */}
         <div className={`flex items-center gap-3 mb-8 transition-all duration-500 ${sidebarCollapsed ? "justify-center" : "px-2"}`}>
-          <div className="w-10 h-10 min-w-[2.5rem] rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
-            <span className="text-xl">M</span>
+          <div className="w-auto px-2 h-10 min-w-[2.5rem] rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
+            <span className="text-xl">Σ✨{'}'}</span>
           </div>
           {!sidebarCollapsed && (
             <motion.div
@@ -191,8 +199,8 @@ export default function Sidebar({
                       setSidebarCollapsed(mode.key === "collapsed");
                     }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center justify-between transition-colors ${expandMode === mode.key
-                        ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300"
-                        : "hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300"
+                      ? "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300"
+                      : "hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300"
                       }`}
                   >
                     {mode.label}
@@ -240,8 +248,8 @@ export default function Sidebar({
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
-                    M
+                  <div className="w-auto px-2 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
+                    Σ✨{'}'}
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">

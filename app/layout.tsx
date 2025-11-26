@@ -7,6 +7,7 @@ import { ReactQueryProviders } from "@/lib/provider/Provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { MathJaxContext } from "better-react-mathjax"
 import { Toaster } from "sonner"
+import AIMentor from "@/components/landing/AIMentor"
 
 const _geist = Geist({
   subsets: ["latin"],
@@ -75,6 +76,7 @@ export default function RootLayout({
           >
             <MathJaxContext version={3} config={config}>
               {children}
+              <AIMentor />
             </MathJaxContext>
             <Toaster richColors position="top-center" />
           </ThemeProvider>

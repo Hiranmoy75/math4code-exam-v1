@@ -48,11 +48,11 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
   const links = [
     { icon: "home", label: "Dashboard", href: "/student/dashboard" },
-    { icon: "book", label: "My Courses", href: "/student/dashboard?tab=my-courses" },
-    { icon: "book", label: "All Courses", href: "/student/dashboard?tab=all-courses" },
-    { icon: "book", label: "My Series", href: "/student/my-series" },
-    { icon: "book", label: "Result", href: "/student/results" },
-    { icon: "book", label: "All Series", href: "/student/all-test-series" },
+    { icon: "bookopen", label: "My Courses", href: "/student/dashboard?tab=my-courses" },
+    { icon: "layers", label: "All Courses", href: "/student/dashboard?tab=all-courses" },
+    { icon: "trendingup", label: "My Series", href: "/student/my-series" },
+    { icon: "award", label: "Result", href: "/student/results" },
+    { icon: "layers", label: "All Series", href: "/student/all-test-series" },
     { icon: "settings", label: "Settings", href: "/student/settings" },
   ];
 
