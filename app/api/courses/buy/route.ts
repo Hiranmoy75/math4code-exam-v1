@@ -116,7 +116,7 @@ export async function POST(req: Request) {
 
         console.log("PhonePe response:", JSON.stringify(paymentResponse, null, 2));
 
-        if (!paymentResponse.success || !paymentResponse.data?.instrumentResponse?.redirectInfo?.url) {
+        if (!paymentResponse.success || !paymentResponse.data?.redirectUrl) {
             console.error("Payment initiation failed:", paymentResponse);
 
             // Update payment status to failed
@@ -126,12 +126,12 @@ export async function POST(req: Request) {
                 .eq("transaction_id", orderId);
 
             return NextResponse.json({
-                error: paymentResponse.message || "Payment initiation failed. Please check your PhonePe configuration.",
+                error: paymentResponse.error || "Payment initiation failed. Please check your PhonePe configuration.",
                 details: paymentResponse
             }, { status: 500 });
         }
 
-        return NextResponse.json({ url: paymentResponse.data.instrumentResponse.redirectInfo.url });
+        return NextResponse.json({ url: paymentResponse.data.redirectUrl });
 
     } catch (error: any) {
         console.error("Buy Course Error:", error);

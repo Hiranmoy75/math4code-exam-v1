@@ -66,7 +66,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
-      <body className={`font-sans antialiased `}>
+      <body className={`font-sans antialiased `} suppressHydrationWarning>
         <ReactQueryProviders>
           <ThemeProvider
             attribute="class"

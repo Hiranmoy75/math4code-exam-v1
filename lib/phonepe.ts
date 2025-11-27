@@ -1,61 +1,85 @@
-import axios from "axios";
-import crypto from "crypto";
+import { StandardCheckoutClient, Env, MetaInfo, StandardCheckoutPayRequest } from 'pg-sdk-node';
 
+// Environment Variables
+const MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID || "M232JQ16HLYZR";
+const CLIENT_ID = process.env.PHONEPE_CLIENT_ID || "M232JQ16HLYZR_2511190912";
+const CLIENT_SECRET = process.env.PHONEPE_CLIENT_SECRET || "NGVhNmJmYWQtNWQxMC00OWFlLTk5YjQtYzQ4Yzg0ZjAyOTdm";
+const CLIENT_VERSION = parseInt(process.env.PHONEPE_CLIENT_VERSION || "1");
+const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || "http://localhost:3000";
+const PHONEPE_ENV = process.env.PHONEPE_ENV === "prod" ? Env.PRODUCTION : Env.SANDBOX;
+
+// Initialize PhonePe Client
+const client = StandardCheckoutClient.getInstance(
+  CLIENT_ID,
+  CLIENT_SECRET,
+  CLIENT_VERSION,
+  PHONEPE_ENV
+);
+
+/**
+ * Initiate Payment using Standard Checkout API (v2) via pg-sdk-node
+ */
 export async function createPayment(orderId: string, amount: number) {
-  const url = `${process.env.PHONEPE_BASE_URL}/pg/v1/pay`;
-
-  const payload = {
-    merchantId: process.env.PHONEPE_MERCHANT_ID,
-    merchantTransactionId: orderId,
-    merchantUserId: "user_123",
-    amount: amount * 100, // 💰 Convert to paise
-    redirectUrl: `${process.env.NEXT_PUBLIC_DOMAIN || 'http://localhost:3000'}/api/phonepe/redirect`,
-    redirectMode: "POST",
-    callbackUrl: `${process.env.NEXT_PUBLIC_DOMAIN || 'http://localhost:3000'}/api/phonepe/callback`,
-    paymentInstrument: {
-      type: "PAY_PAGE",
-    },
-  };
-
-  // Step 1: Base64 encode the payload
-  const payloadBase64 = Buffer.from(JSON.stringify(payload)).toString("base64");
-
-  // Step 2: Create the checksum signature
-  const saltKey = process.env.PHONEPE_SALT_KEY!;
-  const saltIndex = process.env.PHONEPE_SALT_INDEX!;
-  const stringToHash = payloadBase64 + "/pg/v1/pay" + saltKey;
-  const sha256 = crypto.createHash("sha256").update(stringToHash).digest("hex");
-  const xVerify = `${sha256}###${saltIndex}`;
-
-  // Step 3: Send request
-  // Step 3: Send request
   try {
-    const response = await axios.post(
-      url,
-      { request: payloadBase64 },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-VERIFY": xVerify,
-          "X-MERCHANT-ID": process.env.PHONEPE_MERCHANT_ID!,
-        },
-      }
-    );
+    const redirectUrl = `${DOMAIN}/api/phonepe/redirect?transactionId=${orderId}`;
+    const callbackUrl = `${DOMAIN}/api/phonepe/callback`;
 
-    console.log("📦 PhonePe Response:", response.data);
-    return response.data;
+    // Create MetaInfo (Optional but good for tracking)
+    const metaInfo = MetaInfo.builder()
+      .udf1("course_purchase")
+      .build();
+
+    // Build Request
+    const request = StandardCheckoutPayRequest.builder()
+      .merchantOrderId(orderId)
+      .amount(amount * 100) // Convert to paise
+      .redirectUrl(redirectUrl)
+      .metaInfo(metaInfo)
+      .build();
+
+    // Manually add missing fields that might be required
+    (request as any).merchantUserId = "user_123";
+    // deviceContext removed as it causes "WEB" enum error (only IOS/ANDROID allowed)
+
+    console.log("🚀 Initiating Payment (SDK)...");
+    console.log("Request Payload:", JSON.stringify(request, null, 2));
+
+    const response = await client.pay(request);
+
+    console.log("✅ Payment Initiated Successfully:", response);
+
+    return {
+      success: true,
+      data: {
+        redirectUrl: response.redirectUrl
+      }
+    };
+
   } catch (error: any) {
-    console.error("❌ PhonePe Payment Initiation Error:");
-    console.error("Message:", error.message);
-    if (error.response) {
-      console.error("Status:", error.response.status);
-      console.error("Data:", JSON.stringify(error.response.data, null, 2));
-      console.error("Headers:", JSON.stringify(error.response.headers, null, 2));
-    } else if (error.request) {
-      console.error("No response received. Request:", error.request);
-    }
-    console.error("Payload Sent:", JSON.stringify(payload, null, 2));
-    console.error("X-VERIFY:", xVerify);
-    return { success: false, error: error.response?.data || error.message };
+    console.error("❌ PhonePe Payment Initiation Error:", error);
+    return {
+      success: false,
+      error: error.message || "Payment initiation failed",
+      details: error
+    };
+  }
+}
+
+/**
+ * Check Payment Status using Standard Checkout API (v2) via SDK
+ */
+export async function checkPaymentStatus(orderId: string) {
+  try {
+    console.log("🔄 Checking Payment Status (SDK)...");
+    console.log("Order ID:", orderId);
+
+    const response = await client.getTransactionStatus(orderId);
+
+    console.log("✅ Payment Status Response:", JSON.stringify(response, null, 2));
+    return response;
+
+  } catch (error: any) {
+    console.error("❌ PhonePe Status Check Error:", error.message);
+    return { success: false, error: error.message, state: "FAILED" };
   }
 }

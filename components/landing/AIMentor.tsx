@@ -36,7 +36,7 @@ export const chatKeys = {
 
 
 export const callGemini = async (prompt: string, systemInstruction: string = "") => {
-    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || "AIzaSyAQqcaxfNfRAUtWCc_SEDVQGAsZvzUjWQk";
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
     let delay = 1000;
     for (let i = 0; i < 3; i++) {

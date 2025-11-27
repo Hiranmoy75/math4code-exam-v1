@@ -39,7 +39,6 @@ export function useInitiatePayment() {
         },
         onSuccess: (data) => {
             if (data.success && data.paymentUrl) {
-                // Redirect to PhonePe payment page
                 window.location.href = data.paymentUrl;
             } else {
                 toast.error("Failed to initiate payment");
