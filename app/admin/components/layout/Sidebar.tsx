@@ -16,7 +16,8 @@ import {
   GraduationCap,
   Layers,
   Award,
-  TrendingUp
+  TrendingUp,
+  CreditCard
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -41,6 +42,7 @@ const iconMap = {
   bookopen: BookOpen,
   trendingup: TrendingUp,
   award: Award,
+  payment: CreditCard,
 
 };
 

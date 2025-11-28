@@ -160,7 +160,7 @@ export function CoursePlayerClient({
                         </div>
                     </div>
                 </div>
-                <ScrollArea className="flex-1 bg-muted/5">
+                <ScrollArea className="flex-1 min-h-0 bg-muted/5">
                     <TooltipProvider delayDuration={0}>
                         <Accordion type="single" collapsible className="w-full space-y-2 p-2" defaultValue={modules[0]?.id}>
                             {modules.map((module) => (
@@ -256,7 +256,7 @@ export function CoursePlayerClient({
                                     <X className="h-5 w-5 text-muted-foreground" />
                                 </button>
                             </div>
-                            <ScrollArea className="flex-1 bg-muted/5">
+                            <ScrollArea className="flex-1 min-h-0 bg-muted/5">
                                 <Accordion type="single" collapsible className="w-full space-y-2 p-2" defaultValue={modules[0]?.id}>
                                     {modules.map((module) => (
                                         <AccordionItem key={module.id} value={module.id} className="border-none">

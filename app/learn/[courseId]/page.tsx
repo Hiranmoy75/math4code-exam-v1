@@ -13,7 +13,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LessonNavigation } from "@/components/LessonNavigation";
 import ConceptCard from "@/components/ConceptCard";
 import { QuizPlayer } from "@/components/QuizPlayer";
-
+import { LessonSummary } from "@/components/LessonSummary";
+import CustomPDFViewer from "@/components/CustomPDFViewer";
 export default async function CoursePlayerPage({
     params,
     searchParams,
@@ -200,42 +201,29 @@ export default async function CoursePlayerPage({
                             <div className="space-y-8">
                                 {/* Video Content */}
                                 {currentLesson.content_type === "video" && (
-                                    <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg relative border border-border ring-1 ring-border/50">
-                                        {currentLesson.content_url ? (
-                                            <VideoPlayer url={currentLesson.content_url} />
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                                <PlayCircle className="h-20 w-20 opacity-20 mb-4" />
-                                                <span className="text-lg font-medium">Video Content Placeholder</span>
-                                            </div>
-                                        )}
-                                    </div>
+                                    <>
+                                        <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg relative border border-border ring-1 ring-border/50">
+                                            {currentLesson.content_url ? (
+                                                <VideoPlayer url={currentLesson.content_url} />
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                    <PlayCircle className="h-20 w-20 opacity-20 mb-4" />
+                                                    <span className="text-lg font-medium">Video Content Placeholder</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
                                 )}
 
                                 {/* PDF Content */}
                                 {currentLesson.content_type === "pdf" && (
                                     <div className="space-y-4">
-                                        {currentLesson.content_url ? (
-                                            <>
-                                                <div className="aspect-video bg-card rounded-xl overflow-hidden shadow-lg border border-border">
-                                                    <iframe
-                                                        src={currentLesson.content_url}
-                                                        className="w-full h-full"
-                                                        title={currentLesson.title}
-                                                    />
-                                                </div>
-                                                <div className="flex justify-center">
-                                                    <a
-                                                        href={currentLesson.content_url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg transition-colors"
-                                                    >
-                                                        <FileText className="h-4 w-4" />
-                                                        Download / Open PDF
-                                                    </a>
-                                                </div>
-                                            </>
+                                        {currentLesson?.content_url ? (
+                                            <CustomPDFViewer
+                                                url={currentLesson.content_url}
+                                                title={currentLesson.title}
+                                                allowDownload={currentLesson.is_downloadable ?? true}
+                                            />
                                         ) : (
                                             <div className="aspect-video flex flex-col items-center justify-center bg-card rounded-xl border border-border text-muted-foreground">
                                                 <FileText className="h-20 w-20 opacity-20 mb-4" />
@@ -372,6 +360,6 @@ export default async function CoursePlayerPage({
                     )}
                 </div>
             </LessonTracker>
-        </CoursePlayerClient>
+        </CoursePlayerClient >
     );
 }

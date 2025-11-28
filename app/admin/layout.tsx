@@ -37,6 +37,7 @@ export default async function AdminLayout({
     { icon: "question", label: "Question Bank", href: "/admin/question-bank" },
     { icon: "grid", label: "Exam", href: "/admin/exams" },
     { icon: "book", label: "Test Series", href: "/admin/test-series" },
+    { icon: "payment", label: "Payments", href: "/admin/payments" },
     { icon: "user", label: "Students", href: "/admin/students" },
     { icon: "settings", label: "Settings", href: "/admin/settings" },
   ];

@@ -158,6 +158,7 @@ export interface Lesson {
   content_text: string | null
   video_duration: number | null
   is_free_preview: boolean
+  is_downloadable: boolean
   lesson_order: number
   created_at: string
   updated_at: string
