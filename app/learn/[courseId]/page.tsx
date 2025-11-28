@@ -163,7 +163,7 @@ export default async function CoursePlayerPage({
             user={user}
             profile={profile}
         >
-            <LessonTracker key={currentLesson?.id} lessonId={currentLesson?.id || ""} courseId={courseId}>
+            <LessonTracker key={currentLesson?.id} lessonId={currentLesson?.id || ""} courseId={courseId} moduleId={currentLesson?.module_id}>
                 <div className="flex-1 overflow-y-auto p-6 md:p-10 flex flex-col items-center bg-background">
                     {currentLesson ? (
                         <div className="w-full max-w-4xl space-y-8">

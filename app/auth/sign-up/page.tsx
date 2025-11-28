@@ -13,6 +13,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [repeatPassword, setRepeatPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [role, setRole] = useState<"student" | "admin">("student");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,6 +47,7 @@ export default function SignUpPage() {
           data: {
             full_name: fullName,
             role: role,
+            referred_by_code: referralCode, // Pass referral code to metadata
           },
         },
       });
@@ -192,6 +194,26 @@ export default function SignUpPage() {
                 required
                 value={repeatPassword}
                 onChange={(e) => setRepeatPassword(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Referral Code (Optional) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300" htmlFor="referralCode">
+              Referral Code (Optional)
+            </label>
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <User className="h-5 w-5 text-slate-500 group-focus-within:text-indigo-400 transition-colors" />
+              </div>
+              <input
+                id="referralCode"
+                type="text"
+                placeholder="Enter code if you have one"
+                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value)}
               />
             </div>
           </div>

@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { MathJaxContext } from "better-react-mathjax"
 import { Toaster } from "sonner"
 import AIMentor from "@/components/landing/AIMentor"
+import { RewardInitializerWrapper } from "@/components/RewardInitializerWrapper"
 
 const _geist = Geist({
   subsets: ["latin"],
@@ -77,6 +78,7 @@ export default function RootLayout({
             <MathJaxContext version={3} config={config}>
               {children}
               <AIMentor />
+              <RewardInitializerWrapper />
             </MathJaxContext>
             <Toaster richColors position="top-center" />
           </ThemeProvider>

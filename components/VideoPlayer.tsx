@@ -1,4 +1,3 @@
-// components/VideoPlayer.tsx
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
@@ -7,6 +6,9 @@ import {
     Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX,
     Maximize, Minimize, PlayCircle, Loader2, Settings, Info
 } from "lucide-react";
+import { awardCoins } from "@/app/actions/rewardActions";
+import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
 
 // Dynamically import ReactPlayer to avoid hydration errors
 const ReactPlayer = dynamic(() => import("react-player"), { ssr: false }) as any;
@@ -72,35 +74,51 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
     const [sliderValue, setSliderValue] = useState<number>(0);
     const [seeking, setSeeking] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [rewarded, setRewarded] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
 
-    const [showControls, setShowControls] = useState(false);
-    const [isPaused, setIsPaused] = useState(false);
-    const [isFullScreen, setIsFullScreen] = useState(false);
-
-    const [qualityOptions, setQualityOptions] = useState<string[]>([]);
-    const [selectedQuality, setSelectedQuality] = useState<string>("auto");
-    const [speedOptions, setSpeedOptions] = useState<number[]>([0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]);
-    const [playbackRate, setPlaybackRate] = useState<number>(1);
+    // Missing state variables
+    const [showControls, setShowControls] = useState(true);
     const [showQualityModal, setShowQualityModal] = useState(false);
     const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-
-    useEffect(() => setMounted(true), []);
-
-    useEffect(() => {
-        const id = extractYouTubeId(url);
-        setYoutubeId(id);
-        setUsingYouTube(Boolean(id));
-        setIsReady(false); setIsPlayingState(false); setShowCover(true);
-        setDuration(null); setCurrentTime(0); setSliderValue(0);
-        setQualityOptions([]); setPlaybackRate(1);
-    }, [url]);
+    const [isFullScreen, setIsFullScreen] = useState(false);
+    const [isPaused, setIsPaused] = useState(true);
+    const [playbackRate, setPlaybackRate] = useState(1);
+    const [selectedQuality, setSelectedQuality] = useState("auto");
+    const [qualityOptions, setQualityOptions] = useState<string[]>([]);
+    const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
     const updateQualityOptions = (target: any) => {
         try {
-            const q = target.getAvailableQualityLevels ? target.getAvailableQualityLevels() : [];
-            if (Array.isArray(q) && q.length > 0) setQualityOptions(Array.from(new Set(q)));
-        } catch { }
+            if (typeof target.getAvailableQualityLevels === 'function') {
+                const levels = target.getAvailableQualityLevels();
+                if (levels && levels.length > 0) {
+                    setQualityOptions(levels);
+                }
+            }
+        } catch (e) { }
     };
+
+    useEffect(() => {
+        setMounted(true);
+        const yId = extractYouTubeId(url);
+        if (yId) {
+            setUsingYouTube(true);
+            setYoutubeId(yId);
+        } else {
+            setUsingYouTube(false);
+            setYoutubeId(null);
+        }
+    }, [url]);
+
+    useEffect(() => {
+        const getUser = async () => {
+            const supabase = await createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setUserId(user.id);
+        };
+        getUser();
+    }, []);
 
     const startHideControlsTimer = useCallback(() => {
         if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -129,7 +147,7 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
 
             containerRef.current.innerHTML = "";
             const el = document.createElement("div");
-            el.id = `yt-player-${youtubeId}-${Date.now()}`;
+            el.id = `yt - player - ${youtubeId} -${Date.now()} `;
             el.style.width = "100%"; el.style.height = "100%";
             el.style.pointerEvents = "none";
             containerRef.current.appendChild(el);
@@ -174,7 +192,22 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
     }, [usingYouTube, youtubeId]);
 
     const onRPReady = () => { setIsReady(true); try { const d = rpRef.current?.getDuration(); if (d > 0) setDuration(d); } catch { } };
-    const onRPProgress = (state: any) => { if (!seeking) { setSliderValue(state.played); setCurrentTime(state.playedSeconds); } };
+
+    const onRPProgress = async (state: any) => {
+        if (!seeking) {
+            setSliderValue(state.played);
+            setCurrentTime(state.playedSeconds);
+
+            // Reward Logic
+            if (!rewarded && userId && state.played > 0.8) {
+                setRewarded(true);
+                const res = await awardCoins(userId, 'video_watch', url, `Watched video: ${url} `);
+                if (res.success && res.message) {
+                    toast.success(res.message, { icon: "🪙" });
+                }
+            }
+        }
+    };
     const onRPPause = () => { setIsPlayingState(false); setIsPaused(true); };
     const onRPPlay = () => { setIsPlayingState(true); setIsPaused(false); setShowCover(false); };
 
@@ -273,7 +306,7 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
     return (
         <div
             ref={wrapperRef}
-            className={`relative w-full h-full bg-black group overflow-hidden rounded-xl shadow-2xl border border-slate-900 ${className} ${isFullScreen ? 'rounded-none border-none cursor-none' : ''} ${showControls ? 'cursor-auto' : ''}`}
+            className={`relative w-full h-full bg-black group overflow-hidden rounded-xl shadow-2xl border border-slate-900 ${className} ${isFullScreen ? 'rounded-none border-none cursor-none' : ''} ${showControls ? 'cursor-auto' : ''} `}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
         >
@@ -289,12 +322,12 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
             {/* BRANDING */}
             {usingYouTube && !showCover && (
                 <>
-                    <div className={`absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/90 via-black/40 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`} />
-                    <div className={`absolute top-4 left-4 z-30 pointer-events-none flex items-center gap-2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className={`absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/90 via-black/40 to-transparent z-20 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'} `} />
+                    <div className={`absolute top-4 left-4 z-30 pointer-events-none flex items-center gap-2 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'} `}>
                         <div className="bg-blue-600 w-2 h-6 rounded-full"></div>
                         <span className="text-white font-bold tracking-wider text-sm shadow-black drop-shadow-md">MATH4CODE</span>
                     </div>
-                    <div className={`absolute top-4 right-4 z-30 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className={`absolute top-4 right-4 z-30 pointer-events-none transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'} `}>
                         <div className="bg-white/10 p-2 rounded-full backdrop-blur-md"><Info size={20} className="text-white/80" /></div>
                     </div>
                 </>
@@ -303,7 +336,7 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
             {/* INITIAL COVER */}
             {showCover && (
                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-black cursor-pointer" style={{ backgroundImage: thumbUrl ? `url(${thumbUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center' }} onClick={handlePlay}>
-                    <div className={`absolute inset-0 ${thumbUrl ? 'bg-black/40' : 'bg-slate-900'}`}></div>
+                    <div className={`absolute inset-0 ${thumbUrl ? 'bg-black/40' : 'bg-slate-900'} `}></div>
                     <div className="relative z-10 bg-white/10 p-5 rounded-full backdrop-blur-md border border-white/20 hover:scale-110 transition-transform shadow-2xl">
                         {(!isReady && youtubeId) ? <Loader2 className="w-16 h-16 text-white animate-spin" /> : <PlayCircle className="w-20 h-20 text-white" />}
                     </div>
@@ -320,7 +353,7 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
             {errorMsg && <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-900/90 text-white px-4 py-2 rounded-lg z-50 backdrop-blur-md">{errorMsg}</div>}
 
             {/* === CONTROLS === */}
-            <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/80 to-transparent pt-12 pb-4 px-3 sm:px-5 z-50 transition-all duration-300 pointer-events-auto ${showControls || !isPlayingState ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/80 to-transparent pt-12 pb-4 px-3 sm:px-5 z-50 transition-all duration-300 pointer-events-auto ${showControls || !isPlayingState ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"} `}
                 onMouseEnter={() => { if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current); setShowControls(true); }}
                 onMouseLeave={startHideControlsTimer}
             >
@@ -333,7 +366,7 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
                     {/* Background Line */}
                     <div className="absolute inset-0 h-1 top-2.5 bg-white/20 rounded-full group-hover/slider:h-1.5 transition-all pointer-events-none"></div>
                     {/* Progress Line */}
-                    <div className="absolute left-0 top-2.5 h-1 bg-blue-500 rounded-full group-hover/slider:h-1.5 transition-all pointer-events-none" style={{ width: `${sliderValue * 100}%` }}></div>
+                    <div className="absolute left-0 top-2.5 h-1 bg-blue-500 rounded-full group-hover/slider:h-1.5 transition-all pointer-events-none" style={{ width: `${sliderValue * 100}% ` }}></div>
 
                     {/* Invisible Range Input for Dragging Only */}
                     <input
@@ -348,7 +381,7 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
                     />
 
                     {/* Thumb */}
-                    <div className="absolute h-3.5 w-3.5 top-2.5 bg-white border-2 border-blue-500 rounded-full -ml-1.5 -mt-[4px] shadow-lg scale-0 group-hover/slider:scale-100 transition-transform pointer-events-none" style={{ left: `${sliderValue * 100}%` }}></div>
+                    <div className="absolute h-3.5 w-3.5 top-2.5 bg-white border-2 border-blue-500 rounded-full -ml-1.5 -mt-[4px] shadow-lg scale-0 group-hover/slider:scale-100 transition-transform pointer-events-none" style={{ left: `${sliderValue * 100}% ` }}></div>
                 </div>
 
                 {/* BUTTONS ROW */}
@@ -395,8 +428,8 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
                         {(showQualityModal || showSpeedMenu) && (
                             <div className="absolute bottom-full mb-4 right-0 bg-slate-900/95 border border-white/10 text-white rounded-xl shadow-2xl p-2 w-28 sm:w-32 backdrop-blur-xl z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-2 origin-bottom-right">
                                 <div className="max-h-[150px] sm:max-h-[200px] overflow-y-auto thin-scrollbar flex flex-col gap-1">
-                                    {showQualityModal && (<><button className={`modal-btn ${selectedQuality === "auto" ? "active" : ""}`} onClick={() => changeQuality("auto")}>Auto</button>{qualityOptions.map(q => <button key={q} className={`modal-btn ${selectedQuality === q ? "active" : ""}`} onClick={() => changeQuality(q)}>{q.toUpperCase()}</button>)}</>)}
-                                    {showSpeedMenu && speedOptions.map(s => (<button key={s} className={`modal-btn ${playbackRate === s ? "active" : ""}`} onClick={() => changeSpeed(s)}>{s}x</button>))}
+                                    {showQualityModal && (<><button className={`modal-btn ${selectedQuality === "auto" ? "active" : ""} `} onClick={() => changeQuality("auto")}>Auto</button>{qualityOptions.map(q => <button key={q} className={`modal-btn ${selectedQuality === q ? "active" : ""} `} onClick={() => changeQuality(q)}>{q.toUpperCase()}</button>)}</>)}
+                                    {showSpeedMenu && speedOptions.map(s => (<button key={s} className={`modal-btn ${playbackRate === s ? "active" : ""} `} onClick={() => changeSpeed(s)}>{s}x</button>))}
                                 </div>
                             </div>
                         )}

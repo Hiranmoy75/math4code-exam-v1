@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useQueryClient } from "@tanstack/react-query"
 import { createClient } from "@/lib/supabase/client"
+import { awardCoins } from "@/app/actions/rewardActions"
 import { useExamSession, useSubmitExam, useSaveAnswer, useUpdateTimer } from "@/hooks/student/useExamSession"
 import { useExamResult } from "@/hooks/useExamResult"
 import { toast } from "sonner"
@@ -428,7 +429,6 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
     const [paletteOpenMobile, setPaletteOpenMobile] = useState(false)
     const [retakeAttempt, setRetakeAttempt] = useState(isRetake ? 1 : 0) // Track retake attempts
     const [submittedAttemptId, setSubmittedAttemptId] = useState<string | null>(null)
-
     // Auth check
     useEffect(() => {
         const checkUser = async () => {
@@ -567,6 +567,13 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                     .select("result_visibility")
                     .eq("id", examId)
                     .single()
+
+                if (userId) {
+                    const rewardRes = await awardCoins(userId, 'quiz_completion', examId, `Completed quiz: ${sessionData.exam.title}`);
+                    if (rewardRes.success && rewardRes.message) {
+                        toast.success(rewardRes.message, { icon: "🪙" });
+                    }
+                }
 
                 if (examData?.result_visibility === "immediate") {
                     setSubmittedAttemptId(sessionData.attempt.id)

@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { RewardDisplay } from "@/components/RewardDisplay";
 
 export default function Header({
   theme,
@@ -108,8 +109,13 @@ export default function Header({
         </div>
       </div>
 
+
+
       {/* Right Side: Actions */}
       <div className="flex items-center gap-2 md:gap-4">
+        {/* Reward Display */}
+        {profile?.id && <RewardDisplay userId={profile.id} />}
+
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
