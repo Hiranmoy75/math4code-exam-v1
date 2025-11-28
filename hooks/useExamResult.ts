@@ -9,7 +9,7 @@ export async function fetchExamResult(attemptId: string) {
     // 1. Fetch attempt info
     const { data: attempt, error: attemptError } = await supabase
       .from("exam_attempts")
-      .select("*, exams(title, id)")
+      .select("*, exams(title, id, result_visibility, result_release_time, show_answers)")
       .eq("id", attemptId)
       .single()
 

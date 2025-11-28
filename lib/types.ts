@@ -20,6 +20,8 @@ export interface Exam {
   status: "draft" | "published" | "archived"
   start_time: string | null
   end_time: string | null
+  result_visibility: "immediate" | "scheduled" | "manual"
+  result_release_time: string | null
   show_answers: boolean
   negative_marking: boolean
   negative_marks_per_question: number | null
@@ -160,6 +162,7 @@ export interface Lesson {
   is_free_preview: boolean
   is_downloadable: boolean
   lesson_order: number
+  exam_id?: string
   created_at: string
   updated_at: string
 }

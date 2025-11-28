@@ -50,19 +50,19 @@ function QuestionAnalysisView({
     return (
         <div className="bg-[#0d1117] rounded-xl border border-slate-800 overflow-hidden shadow-sm flex flex-col h-[80vh]">
             {/* Header */}
-            <div className="bg-[#161b22] border-b border-slate-800 p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="sm" onClick={onBack} className="text-slate-400 hover:text-white">
-                        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Result
+            <div className="bg-[#161b22] border-b border-slate-800 p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <Button variant="ghost" size="sm" onClick={onBack} className="text-slate-400 hover:text-white px-0 md:px-3">
+                        <ArrowLeft className="w-4 h-4 mr-2" /> <span className="hidden md:inline">Back to Result</span><span className="md:hidden">Back</span>
                     </Button>
-                    <h2 className="text-lg font-bold text-white">Question Analysis</h2>
+                    <h2 className="text-lg font-bold text-white truncate">Question Analysis</h2>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar">
                     {structured.map((s, i) => (
                         <button
                             key={s.id}
                             onClick={() => setActiveSectionIdx(i)}
-                            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${activeSectionIdx === i
+                            className={`px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap ${activeSectionIdx === i
                                 ? "bg-blue-600 text-white"
                                 : "bg-slate-800 text-slate-400 hover:bg-slate-700"
                                 }`}
@@ -243,8 +243,42 @@ export function PreviousResultView({
         )
     }
 
-    const { result, structured, responseMap } = resultData
+    const { result, structured, responseMap, attempt } = resultData
     const passed = result.passed ?? (result.percentage >= 40)
+
+    // Check visibility settings
+    const examSettings = attempt?.exams
+    const visibility = examSettings?.result_visibility || "immediate"
+    const releaseTime = examSettings?.result_release_time
+    const showAnswers = examSettings?.show_answers ?? true
+
+    const isResultVisible = () => {
+        if (visibility === "immediate") return true
+        if (visibility === "manual") return false
+        if (visibility === "scheduled" && releaseTime) {
+            return new Date() >= new Date(releaseTime)
+        }
+        return false
+    }
+
+    if (!isResultVisible()) {
+        return (
+            <div className="bg-[#0d1117] rounded-xl border border-slate-800 p-8 text-center">
+                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Clock className="w-8 h-8 text-slate-400" />
+                </div>
+                <h3 className="text-xl font-bold text-white mb-2">Results Not Yet Available</h3>
+                <p className="text-slate-400 max-w-md mx-auto mb-6">
+                    {visibility === "scheduled" && releaseTime
+                        ? `The results for this exam will be released on ${new Date(releaseTime).toLocaleString()}.`
+                        : "The instructor has not released the results for this exam yet."}
+                </p>
+                <Button onClick={onRetake} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                    Back to Exam
+                </Button>
+            </div>
+        )
+    }
 
     if (showAnalysis) {
         return <QuestionAnalysisView structured={structured} responseMap={responseMap} onBack={() => setShowAnalysis(false)} />
@@ -341,13 +375,15 @@ export function PreviousResultView({
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row justify-center gap-3 pt-4">
-                    <Button
-                        onClick={() => setShowAnalysis(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                        <ListChecks className="w-4 h-4 mr-2" />
-                        Review Questions
-                    </Button>
+                    {showAnswers && (
+                        <Button
+                            onClick={() => setShowAnalysis(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            <ListChecks className="w-4 h-4 mr-2" />
+                            Review Questions
+                        </Button>
+                    )}
                     <Button
                         onClick={onRetake}
                         className="bg-indigo-600 hover:bg-indigo-700"
@@ -528,11 +564,11 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                 // Check if results should be shown immediately
                 const { data: examData } = await supabase
                     .from("exams")
-                    .select("show_results_immediately")
+                    .select("result_visibility")
                     .eq("id", examId)
                     .single()
 
-                if (examData?.show_results_immediately !== false) {
+                if (examData?.result_visibility === "immediate") {
                     setSubmittedAttemptId(sessionData.attempt.id)
                     setShowResults(true)
                 } else {

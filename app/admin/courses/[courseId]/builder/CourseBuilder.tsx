@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import VideoPlayer from "@/components/VideoPlayer";
 import { generateCourseOutline } from "@/app/actions/generateCourseOutline";
+import { ExamSettingsDialog } from "@/components/ExamSettingsDialog";
 
 interface ModuleWithLessons extends Module {
     lessons: Lesson[];
@@ -863,6 +864,7 @@ function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate
     const [isSaving, setIsSaving] = useState(false);
     const [pdfFile, setPdfFile] = useState<File | null>(null);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showExamSettings, setShowExamSettings] = useState(false);
     const supabase = createClient();
 
     const handleSave = async () => {
@@ -1053,10 +1055,22 @@ function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate
                                 This lesson is linked to an exam. Students will see the exam interface when they access this lesson.
                             </p>
                             <div className="mt-6">
-                                <Button variant="outline" className="dark:bg-transparent dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowExamSettings(true)}
+                                    className="dark:bg-transparent dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800"
+                                >
                                     Manage Exam Settings
                                 </Button>
                             </div>
+
+                            {lesson.exam_id && (
+                                <ExamSettingsDialog
+                                    open={showExamSettings}
+                                    onOpenChange={setShowExamSettings}
+                                    examId={lesson.exam_id}
+                                />
+                            )}
                         </div>
                     )}
                 </div>
