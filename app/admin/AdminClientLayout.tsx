@@ -76,7 +76,7 @@ export default function AdminClientLayout({
         <Header theme={theme} toggleTheme={toggleTheme} sidebarCollapsed={sidebarCollapsed} profile={profile} setSidebarCollapsed={setSidebarCollapsed} />
 
         <main
-          className={`flex-1 p-4 md:p-8 mt-16 pb-24 md:pb-8 transition-all duration-500 ${sidebarCollapsed ? "md:ml-20" : "md:ml-64"
+          className={`flex-1 p-4 md:p-6 mt-16 pb-24 md:pb-8 transition-all duration-500 ${sidebarCollapsed ? "md:ml-20" : "md:ml-64"
             }`}
         >{children}
         </main>

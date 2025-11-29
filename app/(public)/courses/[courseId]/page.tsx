@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { CheckCircle, PlayCircle, FileText, Lock, Unlock } from "lucide-react";
 import EnrollButton from "./EnrollButton";
+import { CourseThumbnail } from "@/components/ui/CourseThumbnail";
 
 export default async function CourseLandingPage({
     params,
@@ -179,17 +180,12 @@ export default async function CourseLandingPage({
                             <div className="sticky top-24 space-y-6">
                                 <div className="bg-card rounded-xl border shadow-lg overflow-hidden">
                                     <div className="aspect-video bg-muted relative">
-                                        {course.thumbnail_url ? (
-                                            <img
-                                                src={course.thumbnail_url}
-                                                alt={course.title}
-                                                className="object-cover w-full h-full"
-                                            />
-                                        ) : (
-                                            <div className="flex items-center justify-center h-full bg-slate-100 text-slate-300">
-                                                <PlayCircle className="h-16 w-16" />
-                                            </div>
-                                        )}
+                                        <CourseThumbnail
+                                            src={course.thumbnail_url}
+                                            title={course.title}
+                                            category={course.category || "Course"}
+                                            className="w-full h-full"
+                                        />
                                         <div className="absolute inset-0 bg-black/10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-[2px]">
                                             <div className="bg-white/90 p-4 rounded-full shadow-xl transform scale-90 hover:scale-100 transition-transform">
                                                 <PlayCircle className="h-8 w-8 text-primary" />

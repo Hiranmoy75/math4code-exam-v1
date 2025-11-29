@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, BookOpen, User, Clock, Star, ChevronRight, Filter } from "lucide-react";
 import { Header } from "@/components/landing/Header";
 import { Footer } from "@/components/landing/Footer";
+import { CourseThumbnail } from "@/components/ui/CourseThumbnail";
 
 export default async function MarketplacePage({
     searchParams,
@@ -128,17 +129,12 @@ export default async function MarketplacePage({
                                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 transition-all duration-300 h-full flex flex-col transform hover:-translate-y-1">
                                         {/* Thumbnail */}
                                         <div className="aspect-video bg-slate-100 relative overflow-hidden">
-                                            {course.thumbnail_url ? (
-                                                <img
-                                                    src={course.thumbnail_url}
-                                                    alt={course.title}
-                                                    className="object-cover w-full h-full transform group-hover:scale-105 transition-transform duration-500"
-                                                />
-                                            ) : (
-                                                <div className="flex items-center justify-center h-full text-slate-400 bg-slate-50">
-                                                    <BookOpen className="h-12 w-12 opacity-20" />
-                                                </div>
-                                            )}
+                                            <CourseThumbnail
+                                                src={course.thumbnail_url}
+                                                title={course.title}
+                                                category={course.category || "Course"}
+                                                className="w-full h-full"
+                                            />
                                             <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-md text-xs font-bold text-indigo-600 shadow-sm">
                                                 {course.category || "Course"}
                                             </div>

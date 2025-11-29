@@ -86,7 +86,7 @@ export default async function CoursePlayerPage({
     })) || [];
 
     // Find current lesson
-    let currentLesson = null;
+    let currentLesson: any = null;
     let nextLessonId = null;
     let prevLessonId = null;
 

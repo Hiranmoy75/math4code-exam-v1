@@ -13,6 +13,7 @@ import { usePublicTestSeries } from '@/hooks/usePublicTestSeries';
 import { useRouter } from "next/navigation";
 import { Header } from '@/components/landing/Header';
 import { callGemini } from '@/components/landing/AIMentor';
+import { CourseThumbnail } from "@/components/ui/CourseThumbnail";
 
 // --- 1. Supabase Interfaces (As provided) ---
 
@@ -241,9 +242,14 @@ const CourseCard = ({ course }: { course: PublicCourse }) => {
         <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${badgeColor}`}>
           {course.category || 'Course'}
         </div>
-        {course.thumbnail_url && (
-          <img src={course.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-        )}
+        <div className="w-10 h-10 rounded-lg overflow-hidden">
+          <CourseThumbnail
+            src={course.thumbnail_url}
+            title={course.title}
+            category={course.category || "Course"}
+            className="w-full h-full"
+          />
+        </div>
       </div>
 
       <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-[#1F2A6B] transition-colors">{course.title}</h3>

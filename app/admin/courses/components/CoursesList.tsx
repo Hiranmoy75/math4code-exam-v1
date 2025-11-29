@@ -29,6 +29,20 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { CourseLearnersDialog } from "../CourseLearnersDialog";
 import { formatDistanceToNow } from "date-fns";
+import { CourseThumbnail } from "@/components/ui/CourseThumbnail";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useDeleteCourse } from "@/hooks/admin/useAdminCourses";
 
 interface Course {
     id: string;
@@ -48,9 +62,37 @@ interface CoursesListProps {
 }
 
 export default function CoursesList({ initialCourses }: CoursesListProps) {
+    const router = useRouter();
     const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
     const [searchQuery, setSearchQuery] = useState("");
     const [courses, setCourses] = useState(initialCourses);
+
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+
+    const deleteCourse = useDeleteCourse();
+    const isDeleting = deleteCourse.isPending;
+
+    const handleDelete = async () => {
+        if (!courseToDelete) return;
+
+        try {
+            await deleteCourse.mutateAsync(courseToDelete.id);
+            setCourses((prev) => prev.filter((c) => c.id !== courseToDelete.id));
+            router.refresh();
+        } catch (error) {
+            // Error handling is done in the hook
+            console.error(error);
+        } finally {
+            setDeleteDialogOpen(false);
+            setCourseToDelete(null);
+        }
+    };
+
+    const confirmDelete = (course: Course) => {
+        setCourseToDelete(course);
+        setDeleteDialogOpen(true);
+    };
 
     const filteredCourses = courses.filter(course =>
         course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -124,7 +166,12 @@ export default function CoursesList({ initialCourses }: CoursesListProps) {
                         className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
                     >
                         {filteredCourses.map((course, index) => (
-                            <CourseCard key={course.id} course={course} index={index} />
+                            <CourseCard
+                                key={course.id}
+                                course={course}
+                                index={index}
+                                onDelete={() => confirmDelete(course)}
+                            />
                         ))}
                     </motion.div>
                 ) : (
@@ -137,17 +184,48 @@ export default function CoursesList({ initialCourses }: CoursesListProps) {
                     >
                         <div className="divide-y divide-slate-200 dark:divide-slate-800">
                             {filteredCourses.map((course, index) => (
-                                <CourseRow key={course.id} course={course} index={index} />
+                                <CourseRow
+                                    key={course.id}
+                                    course={course}
+                                    index={index}
+                                    onDelete={() => confirmDelete(course)}
+                                />
                             ))}
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the course
+                            <span className="font-bold text-slate-900 dark:text-white"> "{courseToDelete?.title}" </span>
+                            and remove all associated data including lessons and enrollments.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleDelete();
+                            }}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
+                        >
+                            {isDeleting ? "Deleting..." : "Delete Course"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
 
-function CourseCard({ course, index }: { course: Course; index: number }) {
+function CourseCard({ course, index, onDelete }: { course: Course; index: number; onDelete: () => void }) {
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -155,18 +233,14 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
             transition={{ delay: index * 0.05 }}
         >
             <Card className="group h-full flex flex-col border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xl hover:shadow-blue-500/5 hover:-translate-y-1 transition-all duration-300 overflow-hidden">
-                <div className="relative h-40 bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    {course.thumbnail_url ? (
-                        <img
-                            src={course.thumbnail_url}
-                            alt={course.title}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-900">
-                            <BookOpen className="h-12 w-12 text-blue-200 dark:text-slate-700" />
-                        </div>
-                    )}
+                <div className="relative aspect-video bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <CourseThumbnail
+                        src={course.thumbnail_url}
+                        title={course.title}
+                        category={course.category || "Course"}
+                        className="w-full h-full"
+                        variant="card"
+                    />
                     <div className="absolute top-3 right-3">
                         <Badge
                             variant={course.is_published ? "default" : "secondary"}
@@ -235,7 +309,10 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem className="text-red-600">
+                                <DropdownMenuItem
+                                    className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+                                    onClick={onDelete}
+                                >
                                     <Trash className="mr-2 h-4 w-4" /> Delete
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -247,7 +324,7 @@ function CourseCard({ course, index }: { course: Course; index: number }) {
     );
 }
 
-function CourseRow({ course, index }: { course: Course; index: number }) {
+function CourseRow({ course, index, onDelete }: { course: Course; index: number; onDelete: () => void }) {
     return (
         <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -256,13 +333,13 @@ function CourseRow({ course, index }: { course: Course; index: number }) {
             className="group flex items-center gap-4 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
         >
             <div className="h-12 w-12 rounded-lg bg-slate-100 dark:bg-slate-800 overflow-hidden flex-shrink-0">
-                {course.thumbnail_url ? (
-                    <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                        <BookOpen className="h-6 w-6 text-slate-300" />
-                    </div>
-                )}
+                <CourseThumbnail
+                    src={course.thumbnail_url}
+                    title={course.title}
+                    category={course.category || "Course"}
+                    className="w-full h-full"
+                    variant="card"
+                />
             </div>
 
             <div className="flex-1 min-w-0">
@@ -313,7 +390,10 @@ function CourseRow({ course, index }: { course: Course; index: number }) {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="text-red-600">
+                            <DropdownMenuItem
+                                className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+                                onClick={onDelete}
+                            >
                                 <Trash className="mr-2 h-4 w-4" /> Delete
                             </DropdownMenuItem>
                         </DropdownMenuContent>

@@ -81,7 +81,7 @@ export default function Sidebar({
         className={`hidden md:flex flex-col fixed left-0 top-0 h-screen p-4 
         bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-r border-slate-200 dark:border-slate-800
         transition-all duration-500 z-40 
-        ${sidebarCollapsed ? "w-20" : "w-72"}`}
+        ${sidebarCollapsed ? "w-20" : "w-64"}`}
       >
         {/* Logo */}
         <div className={`flex items-center gap-3 mb-8 transition-all duration-500 ${sidebarCollapsed ? "justify-center" : "px-2"}`}>

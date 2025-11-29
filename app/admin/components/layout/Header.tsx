@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { RewardDisplay } from "@/components/RewardDisplay";
 
+import { useNotifications } from "@/hooks/useNotifications";
+
 export default function Header({
   theme,
   toggleTheme,
@@ -37,6 +39,9 @@ export default function Header({
   const router = useRouter();
   const [openProfile, setOpenProfile] = useState(false);
   const [openNotif, setOpenNotif] = useState(false);
+  const [expandedNotifId, setExpandedNotifId] = useState<string | null>(null);
+
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(profile?.id);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -61,37 +66,25 @@ export default function Header({
     router.push("/auth/login");
   };
 
-  const notifications = [
-    {
-      id: 1,
-      title: "New Student Enrolled",
-      message: "Rahul Kumar enrolled in JEE Mains Series",
-      time: "5 min ago",
-      type: "success",
-      read: false
-    },
-    {
-      id: 2,
-      title: "System Update",
-      message: "Maintenance scheduled for tonight at 2 AM",
-      time: "2 hrs ago",
-      type: "info",
-      read: true
-    },
-    {
-      id: 3,
-      title: "Exam Published",
-      message: "Physics Mock Test 04 is now live",
-      time: "5 hrs ago",
-      type: "success",
-      read: true
-    },
-  ];
+  const handleNotificationClick = (id: string, isRead: boolean) => {
+    // Toggle expansion
+    if (expandedNotifId === id) {
+      setExpandedNotifId(null);
+    } else {
+      setExpandedNotifId(id);
+      // Mark as read if not already
+      if (!isRead) {
+        markAsRead(id);
+      }
+    }
+  };
+
+
 
   return (
     <header
       className={`fixed top-0 right-0 h-16 z-30 flex items-center justify-between px-4 md:px-8 transition-all duration-300
-      ${sidebarCollapsed ? "md:left-20" : "md:left-72"} left-0
+      ${sidebarCollapsed ? "md:left-20" : "md:left-64"} left-0
       bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm`}
     >
       {/* Left Side: Search or Breadcrumbs */}
@@ -126,12 +119,16 @@ export default function Header({
 
         {/* Notifications */}
         <div ref={notifRef} className="relative">
+
+
           <button
             onClick={() => setOpenNotif(!openNotif)}
             className="relative p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+            )}
           </button>
 
           <AnimatePresence>
@@ -145,28 +142,82 @@ export default function Header({
               >
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <h3 className="font-semibold text-slate-900 dark:text-white">Notifications</h3>
-                  <button className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
-                    Mark all as read
-                  </button>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={() => markAllAsRead()}
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
                 </div>
-                <div className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                  {notifications.map((notif) => (
-                    <div key={notif.id} className={`p-4 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${!notif.read ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}>
-                      <div className="flex gap-3">
-                        <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 
-                          ${notif.type === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
-                            notif.type === 'info' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
-                              'bg-slate-100 text-slate-600'}`}>
-                          {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <Info className="w-4 h-4" />}
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-slate-900 dark:text-white">{notif.title}</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{notif.message}</p>
-                          <span className="text-[10px] text-slate-400 mt-2 block">{notif.time}</span>
+                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 dark:text-slate-400">
+                      <Bell className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">No notifications yet</p>
+                    </div>
+                  ) : (
+                    notifications.map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif.id, notif.is_read)}
+                        className={`p-4 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer
+                          ${!notif.is_read ? 'bg-indigo-50/30 dark:bg-indigo-900/10' : ''}`}
+                      >
+                        <div className="flex gap-3">
+                          <div className={`mt-1 w-8 h-8 rounded-full flex items-center justify-center shrink-0 
+                            ${notif.type === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' :
+                              notif.type === 'info' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' :
+                                notif.type === 'warning' ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                  notif.type === 'error' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
+                                    'bg-slate-100 text-slate-600'}`}>
+                            {notif.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> :
+                              notif.type === 'warning' ? <AlertCircle className="w-4 h-4" /> :
+                                notif.type === 'error' ? <AlertCircle className="w-4 h-4" /> :
+                                  <Info className="w-4 h-4" />}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex justify-between items-start">
+                              <h4 className={`text-sm font-medium ${!notif.is_read ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300'}`}>
+                                {notif.title}
+                              </h4>
+                              <span className="text-[10px] text-slate-400 whitespace-nowrap ml-2">
+                                {new Date(notif.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+
+                            {/* Expandable Message Area */}
+                            <div className="mt-1">
+                              <p className={`text-xs text-slate-500 dark:text-slate-400 transition-all duration-300 ${expandedNotifId === notif.id ? '' : 'line-clamp-2'}`}>
+                                {notif.message}
+                              </p>
+
+                              {/* Show 'Show less' if expanded, or nothing if collapsed (implicit 'Show more' via truncation) */}
+                              {expandedNotifId === notif.id && (
+                                <span className="text-[10px] text-indigo-500 font-medium mt-1 block">
+                                  Show less
+                                </span>
+                              )}
+                            </div>
+
+                            {notif.link && expandedNotifId === notif.id && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(notif.link!);
+                                  setOpenNotif(false);
+                                }}
+                                className="mt-2 text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                              >
+                                View Details →
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <div className="p-3 border-t border-slate-100 dark:border-slate-800 text-center">
                   <button className="text-sm text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors">

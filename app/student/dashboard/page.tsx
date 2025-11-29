@@ -24,6 +24,7 @@ import { useLastAttempt } from "@/hooks/student/useLastAttempt";
 import { useStudentCourses } from "@/hooks/student/useStudentCourses";
 import { useAllCourses } from "@/hooks/student/useAllCourses";
 import { Button } from "@/components/ui/button";
+import { CourseThumbnail } from "@/components/ui/CourseThumbnail";
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -297,13 +298,14 @@ export default function StudentDashboard() {
                   whileHover={{ scale: 1.02 }}
                   className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md"
                 >
-                  {course.thumbnail_url && (
-                    <img
+                  <div className="h-40 w-full mb-3 rounded-lg overflow-hidden">
+                    <CourseThumbnail
                       src={course.thumbnail_url}
-                      alt={course.title}
-                      className="w-full h-40 object-cover rounded-lg mb-3"
+                      title={course.title}
+                      category="Enrolled"
+                      className="w-full h-full"
                     />
-                  )}
+                  </div>
                   <h4 className="font-semibold text-slate-800 dark:text-white mb-2">{course.title}</h4>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{course.description}</p>
                   <div className="flex justify-between text-xs mb-2 text-slate-500 dark:text-slate-400">
@@ -363,13 +365,14 @@ export default function StudentDashboard() {
                   whileHover={{ scale: 1.02 }}
                   className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md"
                 >
-                  {course.thumbnail_url && (
-                    <img
+                  <div className="h-40 w-full mb-3 rounded-lg overflow-hidden">
+                    <CourseThumbnail
                       src={course.thumbnail_url}
-                      alt={course.title}
-                      className="w-full h-40 object-cover rounded-lg mb-3"
+                      title={course.title}
+                      category="Course"
+                      className="w-full h-full"
                     />
-                  )}
+                  </div>
                   <h4 className="font-semibold text-slate-800 dark:text-white mb-2">{course.title}</h4>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">By {course.instructor_name}</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 line-clamp-2">{course.description}</p>
