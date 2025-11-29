@@ -10,6 +10,7 @@ export type Profile = {
   created_at?: string | null;
   updated_at?: string | null;
   avatar_url?: string | null;
+  referral_code?: string | null;
 };
 
 /**

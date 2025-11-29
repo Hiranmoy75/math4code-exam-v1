@@ -172,10 +172,14 @@ CREATE TABLE public.profiles (
   email text NOT NULL,
   role text NOT NULL CHECK (role = ANY (ARRAY['admin'::text, 'student'::text, 'creator'::text])),
   full_name text,
+  avatar_url text,
+  referral_code text UNIQUE,
+  referred_by uuid,
   created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_referred_by_fkey FOREIGN KEY (referred_by) REFERENCES public.profiles(id)
 );
 CREATE TABLE public.question_bank (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -326,4 +330,56 @@ CREATE TABLE public.test_series_exams (
   CONSTRAINT test_series_exams_pkey PRIMARY KEY (id),
   CONSTRAINT test_series_exams_test_series_id_fkey FOREIGN KEY (test_series_id) REFERENCES public.test_series(id),
   CONSTRAINT test_series_exams_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(id)
+);
+
+CREATE TABLE public.user_rewards (
+  user_id uuid NOT NULL,
+  total_coins integer DEFAULT 0,
+  current_streak integer DEFAULT 0,
+  longest_streak integer DEFAULT 0,
+  last_activity_date date,
+  daily_coins_earned integer DEFAULT 0,
+  last_coin_date date,
+  xp integer DEFAULT 0,
+  level integer DEFAULT 1,
+  weekly_xp integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_rewards_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_rewards_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE
+);
+
+CREATE TABLE public.reward_transactions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  amount integer NOT NULL,
+  action_type text NOT NULL,
+  entity_id text,
+  description text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT reward_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT reward_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE
+);
+
+CREATE TABLE public.user_badges (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  badge_id text NOT NULL,
+  earned_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_badges_pkey PRIMARY KEY (id),
+  CONSTRAINT user_badges_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  CONSTRAINT user_badges_user_badge_unique UNIQUE (user_id, badge_id)
+);
+
+CREATE TABLE public.daily_missions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  mission_type text NOT NULL,
+  target integer NOT NULL,
+  progress integer DEFAULT 0,
+  completed boolean DEFAULT false,
+  date date DEFAULT CURRENT_DATE,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT daily_missions_pkey PRIMARY KEY (id),
+  CONSTRAINT daily_missions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE
 );

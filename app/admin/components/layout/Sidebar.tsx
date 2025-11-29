@@ -17,7 +17,8 @@ import {
   Layers,
   Award,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  Gift
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -43,7 +44,7 @@ const iconMap = {
   trendingup: TrendingUp,
   award: Award,
   payment: CreditCard,
-
+  gift: Gift,
 };
 
 

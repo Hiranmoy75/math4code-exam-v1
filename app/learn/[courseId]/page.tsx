@@ -15,6 +15,7 @@ import ConceptCard from "@/components/ConceptCard";
 import { QuizPlayer } from "@/components/QuizPlayer";
 import { LessonSummary } from "@/components/LessonSummary";
 import CustomPDFViewer from "@/components/CustomPDFViewer";
+
 export default async function CoursePlayerPage({
     params,
     searchParams,
@@ -92,6 +93,15 @@ export default async function CoursePlayerPage({
     // Flatten lessons for easier navigation
     const allLessons = modulesWithSortedLessons.flatMap(m => m.lessons);
 
+    // Fetch lesson progress for smart navigation
+    const { data: progressData } = await supabase
+        .from("lesson_progress")
+        .select("lesson_id, completed")
+        .eq("user_id", user.id)
+        .eq("course_id", courseId);
+
+    const completedLessonIds = new Set(progressData?.filter(p => p.completed).map(p => p.lesson_id) || []);
+
     if (lessonId) {
         const currentIndex = allLessons.findIndex((l: any) => l.id === lessonId);
         if (currentIndex !== -1) {
@@ -100,8 +110,20 @@ export default async function CoursePlayerPage({
             nextLessonId = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1].id : null;
         }
     } else if (allLessons.length > 0) {
-        currentLesson = allLessons[0];
-        nextLessonId = allLessons.length > 1 ? allLessons[1].id : null;
+        // Smart Navigation: Find first incomplete lesson
+        const firstIncomplete = allLessons.find((l: any) => !completedLessonIds.has(l.id));
+
+        if (firstIncomplete) {
+            currentLesson = firstIncomplete;
+        } else {
+            // All completed, start from beginning
+            currentLesson = allLessons[0];
+        }
+
+        // Set next/prev based on the found lesson
+        const currentIndex = allLessons.findIndex((l: any) => l.id === currentLesson.id);
+        prevLessonId = currentIndex > 0 ? allLessons[currentIndex - 1].id : null;
+        nextLessonId = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1].id : null;
     }
 
 
@@ -163,11 +185,16 @@ export default async function CoursePlayerPage({
             user={user}
             profile={profile}
         >
-            <LessonTracker key={currentLesson?.id} lessonId={currentLesson?.id || ""} courseId={courseId} moduleId={currentLesson?.module_id}>
+            <LessonTracker
+                key={currentLesson?.id}
+                lessonId={currentLesson?.id || ""}
+                courseId={courseId}
+                moduleId={currentLesson?.module_id}
+                contentType={currentLesson?.content_type as any}
+            >
                 <div className="flex-1 overflow-y-auto p-6 md:p-10 flex flex-col items-center bg-background">
                     {currentLesson ? (
                         <div className="w-full max-w-4xl space-y-8">
-
 
                             {/* Lesson Header - Hide for Quiz */}
                             {!isQuiz && (

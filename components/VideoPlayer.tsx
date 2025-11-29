@@ -9,6 +9,7 @@ import {
 import { awardCoins } from "@/app/actions/rewardActions";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useLessonContext } from "@/context/LessonContext";
 
 // Dynamically import ReactPlayer to avoid hydration errors
 const ReactPlayer = dynamic(() => import("react-player"), { ssr: false }) as any;
@@ -76,6 +77,7 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [rewarded, setRewarded] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
+    const { markComplete } = useLessonContext();
 
     // Missing state variables
     const [showControls, setShowControls] = useState(true);
@@ -205,6 +207,8 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
                 if (res.success && res.message) {
                     toast.success(res.message, { icon: "🪙" });
                 }
+                // Mark lesson complete via context
+                markComplete();
             }
         }
     };

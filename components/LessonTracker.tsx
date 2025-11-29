@@ -1,55 +1,68 @@
 "use client"
 
-import { useEffect } from "react"
-
+import { useEffect, useState, useCallback } from "react"
 import { useMarkLessonComplete } from "@/hooks/student/useLessonProgress"
 import { createClient } from "@/lib/supabase/client"
 import { checkModuleCompletion, checkFirstLessonReward } from "@/app/actions/rewardActions"
 import { toast } from "sonner"
+import LessonContext from "@/context/LessonContext"
 
 interface LessonTrackerProps {
     lessonId: string
     courseId: string
     moduleId?: string
+    contentType?: "video" | "text" | "pdf" | "quiz"
     children: React.ReactNode
 }
 
-export function LessonTracker({ lessonId, courseId, moduleId, children }: LessonTrackerProps) {
-    const { mutate: markComplete } = useMarkLessonComplete()
+export function LessonTracker({ lessonId, courseId, moduleId, contentType = "text", children }: LessonTrackerProps) {
+    const { mutate: markCompleteMutation } = useMarkLessonComplete()
+    const [isCompleted, setIsCompleted] = useState(false)
+
+    const handleMarkComplete = useCallback(() => {
+        if (isCompleted) return
+
+        const supabase = createClient()
+        supabase.auth.getUser().then(async ({ data: { user } }) => {
+            if (user && lessonId) {
+                markCompleteMutation({
+                    userId: user.id,
+                    lessonId,
+                    courseId,
+                }, {
+                    onSuccess: async () => {
+                        setIsCompleted(true)
+                        if (moduleId) {
+                            const res = await checkModuleCompletion(user.id, moduleId)
+                            if (res?.success && res.message) {
+                                toast.success(res.message, { icon: "🪙" })
+                            }
+                        }
+                        // Check for first lesson reward (referral)
+                        await checkFirstLessonReward(user.id)
+                    }
+                })
+            }
+        })
+    }, [isCompleted, lessonId, courseId, moduleId, markCompleteMutation])
 
     useEffect(() => {
-        const trackLesson = async () => {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
+        // Reset completion state when lesson changes
+        setIsCompleted(false)
 
-            if (user && lessonId) {
-                // Mark lesson as complete after 3 seconds of viewing
-                const timer = setTimeout(() => {
-                    markComplete({
-                        userId: user.id,
-                        lessonId,
-                        courseId,
-                    }, {
-                        onSuccess: async () => {
-                            if (moduleId) {
-                                const res = await checkModuleCompletion(user.id, moduleId)
-                                if (res?.success && res.message) {
-                                    toast.success(res.message, { icon: "🪙" })
-                                }
-                            }
+        // Strict Rules for Text/PDF: 5 minutes timer
+        if (contentType === "text" || contentType === "pdf") {
+            const timer = setTimeout(() => {
+                handleMarkComplete()
+            }, 5 * 60 * 1000) // 5 minutes
 
-                            // Check for first lesson reward (referral)
-                            await checkFirstLessonReward(user.id)
-                        }
-                    })
-                }, 3000)
-
-                return () => clearTimeout(timer)
-            }
+            return () => clearTimeout(timer)
         }
+    }, [lessonId, contentType, handleMarkComplete])
 
-        trackLesson()
-    }, [lessonId, courseId, markComplete])
-
-    return <>{children}</>
+    return (
+        <LessonContext.Provider value={{ markComplete: handleMarkComplete, isCompleted }}>
+            {children}
+        </LessonContext.Provider>
+    )
 }

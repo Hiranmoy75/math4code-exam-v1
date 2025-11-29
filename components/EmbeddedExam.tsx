@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { renderWithLatex } from "@/lib/renderWithLatex"
 import { useRouter } from "next/navigation"
+import { useLessonContext } from "@/context/LessonContext"
 
 interface EmbeddedExamProps {
     examId: string
@@ -427,8 +428,10 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
     const [isTimerActive, setIsTimerActive] = useState(false)
     const [showResults, setShowResults] = useState(false)
     const [paletteOpenMobile, setPaletteOpenMobile] = useState(false)
-    const [retakeAttempt, setRetakeAttempt] = useState(isRetake ? 1 : 0) // Track retake attempts
+    const [retakeAttempt, setRetakeAttempt] = useState(isRetake ? 1 : 0)
     const [submittedAttemptId, setSubmittedAttemptId] = useState<string | null>(null)
+    const { markComplete } = useLessonContext()
+
     // Auth check
     useEffect(() => {
         const checkUser = async () => {
@@ -573,6 +576,8 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                     if (rewardRes.success && rewardRes.message) {
                         toast.success(rewardRes.message, { icon: "🪙" });
                     }
+                    // Mark lesson complete via context
+                    markComplete();
                 }
 
                 if (examData?.result_visibility === "immediate") {

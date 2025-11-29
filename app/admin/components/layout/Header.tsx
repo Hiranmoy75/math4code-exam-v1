@@ -113,8 +113,8 @@ export default function Header({
 
       {/* Right Side: Actions */}
       <div className="flex items-center gap-2 md:gap-4">
-        {/* Reward Display */}
-        {profile?.id && <RewardDisplay userId={profile.id} />}
+        {/* Reward Display - Only for Students */}
+        {profile?.id && profile?.role === "student" && <RewardDisplay userId={profile.id} userProfile={profile} />}
 
         {/* Theme Toggle */}
         <button

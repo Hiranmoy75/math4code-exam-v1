@@ -5,8 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Coins, Flame, Hexagon, Trophy, Crown, Medal } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { getLeaderboard } from "@/app/actions/rewardActions";
+import { useLeaderboard } from "@/hooks/useRewards";
 
 interface RewardModalProps {
     isOpen: boolean;
@@ -16,20 +15,8 @@ interface RewardModalProps {
 }
 
 export function RewardModal({ isOpen, onClose, userRewards, userProfile }: RewardModalProps) {
-    const [leaderboard, setLeaderboard] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        if (isOpen) {
-            const fetchLeaderboard = async () => {
-                setLoading(true);
-                const data = await getLeaderboard(20);
-                setLeaderboard(data || []);
-                setLoading(false);
-            };
-            fetchLeaderboard();
-        }
-    }, [isOpen]);
+    const { data: leaderboardData, isLoading: loading } = useLeaderboard('all_time', 20);
+    const leaderboard = leaderboardData || [];
 
     const getRankIcon = (index: number) => {
         switch (index) {

@@ -1,39 +1,29 @@
-
-import { useEffect, useState } from "react";
-import { getRewardStatus } from "@/app/actions/rewardActions";
+import { useState } from "react";
+import { useRewards } from "@/hooks/useRewards";
 import { Gift, Flame, Hexagon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { motion, AnimatePresence } from "framer-motion";
 import { RewardModal } from "./RewardModal";
 import { createClient } from "@/lib/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
-export function RewardDisplay({ userId }: { userId: string }) {
-    const [rewards, setRewards] = useState<any>(null);
+export function RewardDisplay({ userId, userProfile }: { userId: string; userProfile?: any }) {
+    const { rewardStatus: rewards } = useRewards(userId);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [profile, setProfile] = useState<any>(null);
 
-    useEffect(() => {
-        const fetchData = async () => {
+    // Fetch profile if not provided
+    const { data: fetchedProfile } = useQuery({
+        queryKey: ['profile', userId],
+        queryFn: async () => {
             const supabase = createClient();
-            const [rewardData, { data: profileData }] = await Promise.all([
-                getRewardStatus(userId),
-                supabase.from("profiles").select("*").eq("id", userId).single()
-            ]);
-            setRewards(rewardData);
-            setProfile(profileData);
-        };
-        fetchData();
+            const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+            return data;
+        },
+        enabled: !userProfile,
+        staleTime: 1000 * 60 * 5
+    });
 
-        const interval = setInterval(fetchData, 60000);
-
-        const handleUpdate = () => fetchData();
-        window.addEventListener("rewards-updated", handleUpdate);
-
-        return () => {
-            clearInterval(interval);
-            window.removeEventListener("rewards-updated", handleUpdate);
-        };
-    }, [userId]);
+    const profile = userProfile || fetchedProfile;
 
     if (!rewards) return null;
 
@@ -70,7 +60,7 @@ export function RewardDisplay({ userId }: { userId: string }) {
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2">
+                            <div className="hidden sm:flex items-center gap-2">
                                 <div className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full ${rewards.current_streak > 0 ? "bg-orange-100 dark:bg-orange-900/30" : "bg-slate-200 dark:bg-slate-800"}`}>
                                     <Flame className={`w-4 h-4 sm:w-5 sm:h-5 ${rewards.current_streak > 0 ? "text-orange-500 fill-orange-500 animate-pulse" : "text-slate-400 fill-slate-400"}`} />
                                 </div>
@@ -85,7 +75,7 @@ export function RewardDisplay({ userId }: { userId: string }) {
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2">
+                            <div className="hidden sm:flex items-center gap-2">
                                 <div className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8">
                                     <Hexagon className="w-full h-full text-blue-200 dark:text-blue-900 fill-blue-100 dark:fill-blue-900/50" />
                                     <span className="absolute text-[8px] sm:text-[10px] font-bold text-blue-600 dark:text-blue-400">XP</span>
