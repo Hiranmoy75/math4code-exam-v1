@@ -383,3 +383,136 @@ CREATE TABLE public.daily_missions (
   CONSTRAINT daily_missions_pkey PRIMARY KEY (id),
   CONSTRAINT daily_missions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE
 );
+
+-- ============================================================================
+-- NOTIFICATIONS SCHEMA (from fix_notifications_schema.sql)
+-- ============================================================================
+
+-- Create notifications table
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  title text NOT NULL,
+  message text NOT NULL,
+  type text NOT NULL DEFAULT 'info' CHECK (type IN ('info', 'success', 'warning', 'error')),
+  is_read boolean DEFAULT false,
+  link text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE
+);
+
+-- Enable RLS
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
+CREATE POLICY "Users can view their own notifications"
+ON public.notifications FOR SELECT
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own notifications" ON public.notifications;
+CREATE POLICY "Users can update their own notifications"
+ON public.notifications FOR UPDATE
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Anyone can insert notifications" ON public.notifications;
+CREATE POLICY "Anyone can insert notifications"
+ON public.notifications FOR INSERT
+WITH CHECK (true); 
+
+-- Create a function to easily add notifications
+CREATE OR REPLACE FUNCTION create_notification(
+  p_user_id uuid,
+  p_title text,
+  p_message text,
+  p_type text DEFAULT 'info',
+  p_link text DEFAULT NULL
+) RETURNS uuid AS $$
+DECLARE
+  v_id uuid;
+BEGIN
+  INSERT INTO public.notifications (user_id, title, message, type, link)
+  VALUES (p_user_id, p_title, p_message, p_type, p_link)
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- NOTIFICATION TRIGGERS (from triggers_notifications_v2.sql)
+-- ============================================================================
+
+-- Function to notify ALL users when a new course is launched (published)
+CREATE OR REPLACE FUNCTION notify_all_users_new_course()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Only trigger if the course is being published
+  IF (TG_OP = 'INSERT' AND NEW.is_published = true) OR
+     (TG_OP = 'UPDATE' AND NEW.is_published = true AND OLD.is_published = false) THEN
+     
+    INSERT INTO public.notifications (user_id, title, message, type, link)
+    SELECT 
+      id, 
+      'New Course Launched! 🚀', 
+      'Check out our new course: ' || NEW.title, 
+      'info', 
+      '/courses/' || NEW.id
+    FROM public.profiles;
+    
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for courses table
+DROP TRIGGER IF EXISTS on_course_published ON public.courses;
+CREATE TRIGGER on_course_published
+AFTER INSERT OR UPDATE ON public.courses
+FOR EACH ROW
+EXECUTE FUNCTION notify_all_users_new_course();
+
+-- Function to notify enrolled users when a new lesson is added
+CREATE OR REPLACE FUNCTION notify_enrolled_users_new_lesson()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_course_id uuid;
+  v_course_title text;
+BEGIN
+  -- Get course details via module
+  SELECT c.id, c.title
+  INTO v_course_id, v_course_title
+  FROM public.modules m
+  JOIN public.courses c ON m.course_id = c.id
+  WHERE m.id = NEW.module_id;
+
+  -- Notify ALL enrolled users (active status), regardless of price
+  INSERT INTO public.notifications (user_id, title, message, type, link)
+  SELECT 
+    e.user_id, 
+    'New Lesson Added 📚', 
+    'A new lesson "' || NEW.title || '" has been added to ' || v_course_title, 
+    'info', 
+    '/learn/' || v_course_id || '?lessonId=' || NEW.id
+  FROM public.enrollments e
+  WHERE e.course_id = v_course_id AND e.status = 'active';
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for lessons table
+DROP TRIGGER IF EXISTS on_lesson_added ON public.lessons;
+CREATE TRIGGER on_lesson_added
+AFTER INSERT ON public.lessons
+FOR EACH ROW
+EXECUTE FUNCTION notify_enrolled_users_new_lesson();
+
+-- ============================================================================
+-- REALTIME CONFIGURATION (from enable_realtime_notifications.sql)
+-- ============================================================================
+
+-- Enable Realtime for notifications table
+BEGIN;
+  ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+COMMIT;

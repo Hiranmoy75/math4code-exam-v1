@@ -53,9 +53,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create payment record
-        const transactionId = `TXN_${Date.now()}_${userId.substring(0, 8)}`;
+        // Create a unique Merchant Transaction ID
+        // Format: MT_{timestamp}_{random} to ensure uniqueness and no special chars
+        const merchantTransactionId = `MT${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
+        console.log(`Creating Payment Record for User: ${userId}, Series: ${seriesId}, TxnID: ${merchantTransactionId}`);
+
+        // Create payment record in DB first
         const { data: payment, error: paymentError } = await supabase
             .from("payments")
             .insert({
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest) {
                 series_id: seriesId,
                 amount: amount,
                 status: "pending",
-                phonepe_transaction_id: transactionId,
+                phonepe_transaction_id: merchantTransactionId, // Store the exact ID we will send to PhonePe
             })
             .select()
             .single();
@@ -76,14 +80,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Initiate Payment using shared utility (OAuth)
-        const paymentResponse = await createPayment(transactionId, amount);
+        // Initiate Payment using shared utility
+        // Pass the EXACT merchantTransactionId we just stored
+        const paymentResponse = await createPayment(merchantTransactionId, amount, userId);
 
         if (paymentResponse.success && paymentResponse.data?.redirectUrl) {
             return NextResponse.json({
                 success: true,
                 paymentUrl: paymentResponse.data.redirectUrl,
-                transactionId: transactionId,
+                transactionId: merchantTransactionId,
             });
         } else {
             // Update payment status to failed

@@ -2,26 +2,63 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkPaymentStatus } from "@/lib/phonepe";
 
+// CORS headers for mobile app
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS(req: Request) {
+    return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
     try {
         const { transactionId } = await req.json();
 
         if (!transactionId) {
-            return NextResponse.json({ error: "Transaction ID is required" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Transaction ID is required" },
+                { status: 400, headers: corsHeaders }
+            );
         }
 
-        console.log("Checking status for:", transactionId);
+        console.log("🔍 Verifying Payment for Transaction ID:", transactionId);
+
+        // Check for Authorization header (for mobile app)
+        const authHeader = req.headers.get('Authorization');
+        let supabase;
+
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            // Mobile app request with Bearer token
+            const token = authHeader.split(' ')[1];
+            const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
+
+            supabase = createSupabaseClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                {
+                    global: {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    },
+                }
+            );
+        } else {
+            // Web app request with cookies
+            supabase = await createClient();
+        }
 
         // 1. Call PhonePe Status API
+        // We pass the transactionId exactly as it was created (merchantTransactionId)
         const statusResponse = await checkPaymentStatus(transactionId);
 
         // 2. Determine Status
         let status = "pending";
-        // PhonePe v2 Status API returns { state: "COMPLETED" | "FAILED" | "PENDING", ... }
-        // or sometimes { code: "PAYMENT_SUCCESS", ... } depending on exact endpoint version behavior
-        // Let's handle both common patterns just in case, but v2 usually uses 'state'
-
-        const state = statusResponse.state;
+        const state = statusResponse.state || statusResponse.code; // Handle both v1/v2 response structures just in case
 
         if (state === "COMPLETED" || state === "PAYMENT_SUCCESS") {
             status = "success";
@@ -29,11 +66,9 @@ export async function POST(req: Request) {
             status = "failed";
         }
 
-        console.log("Determined Status:", status, "from State:", state);
+        console.log(`📝 Status for ${transactionId}: ${status} (State: ${state})`);
 
         // 3. Update Database
-        const supabase = await createClient();
-
         // Try updating course_payments first
         let { data: payment, error: updateError } = await supabase
             .from("course_payments")
@@ -61,8 +96,7 @@ export async function POST(req: Request) {
                 isTestSeries = true;
                 updateError = null;
             } else if (tsError) {
-                // Keep the original error if both fail, or log it
-                console.log("Not found in payments either");
+                console.error("❌ Transaction not found in DB:", transactionId);
             }
         }
 
@@ -88,6 +122,7 @@ export async function POST(req: Request) {
                         test_series_id: payment.series_id,
                         enrolled_at: new Date().toISOString()
                     });
+                    console.log("✅ Test Series Enrollment Created");
                 }
             } else {
                 // Course Enrollment
@@ -106,6 +141,7 @@ export async function POST(req: Request) {
                         status: "active",
                         payment_id: payment.id
                     });
+                    console.log("✅ Course Enrollment Created");
                 } else {
                     // Update existing enrollment
                     await supabase
@@ -115,11 +151,12 @@ export async function POST(req: Request) {
                             payment_id: payment.id
                         })
                         .eq("id", existingEnrollment.id);
+                    console.log("✅ Course Enrollment Updated");
                 }
             }
         }
 
-        return NextResponse.json({ status: status, data: statusResponse });
+        return NextResponse.json({ status: status, data: statusResponse }, { headers: corsHeaders });
 
     } catch (error: any) {
         console.error("Status Check Error:", error);

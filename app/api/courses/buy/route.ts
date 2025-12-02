@@ -2,17 +2,64 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createPayment } from "@/lib/phonepe";
 
+// CORS headers for mobile app
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS(req: Request) {
+    return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
     try {
         const { courseId } = await req.json();
-        const supabase = await createClient();
 
-        const {
-            data: { user },
-        } = await supabase.auth.getUser();
+        // Check for Authorization header (for mobile app)
+        const authHeader = req.headers.get('Authorization');
+        let supabase;
+        let user;
+
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            // Mobile app request with Bearer token
+            const token = authHeader.split(' ')[1];
+            const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
+
+            supabase = createSupabaseClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                {
+                    global: {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    },
+                }
+            );
+
+            const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+            if (authError || !authUser) {
+                return NextResponse.json(
+                    { error: "Unauthorized (Invalid Token)" },
+                    { status: 401, headers: corsHeaders }
+                );
+            }
+            user = authUser;
+        } else {
+            // Web app request with cookies
+            supabase = await createClient();
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+            user = authUser;
+        }
 
         if (!user) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401, headers: corsHeaders }
+            );
         }
 
         // Fetch course price
@@ -24,11 +71,17 @@ export async function POST(req: Request) {
 
         if (courseError) {
             console.error("Course fetch error:", courseError);
-            return NextResponse.json({ error: "Course not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "Course not found" },
+                { status: 404, headers: corsHeaders }
+            );
         }
 
         if (!course) {
-            return NextResponse.json({ error: "Course not found" }, { status: 404 });
+            return NextResponse.json(
+                { error: "Course not found" },
+                { status: 404, headers: corsHeaders }
+            );
         }
 
         console.log("Course found:", course.title, "Price:", course.price);
@@ -42,7 +95,10 @@ export async function POST(req: Request) {
             .single();
 
         if (existingEnrollment && existingEnrollment.status === "active") {
-            return NextResponse.json({ error: "Already enrolled" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Already enrolled" },
+                { status: 400, headers: corsHeaders }
+            );
         }
 
         // Handle Free Course - create enrollment directly
@@ -78,7 +134,10 @@ export async function POST(req: Request) {
             }
 
             console.log("Free course enrolled successfully");
-            return NextResponse.json({ success: true });
+            return NextResponse.json(
+                { success: true },
+                { headers: corsHeaders }
+            );
         }
 
         // For Paid Courses - Initiate Payment FIRST, then create enrollment
@@ -109,7 +168,7 @@ export async function POST(req: Request) {
             return NextResponse.json({
                 error: "Failed to initialize payment record",
                 details: paymentError
-            }, { status: 500 });
+            }, { status: 500, headers: corsHeaders });
         }
 
         const paymentResponse = await createPayment(orderId, course.price);
@@ -128,16 +187,22 @@ export async function POST(req: Request) {
             return NextResponse.json({
                 error: paymentResponse.error || "Payment initiation failed. Please check your PhonePe configuration.",
                 details: paymentResponse
-            }, { status: 500 });
+            }, { status: 500, headers: corsHeaders });
         }
 
-        return NextResponse.json({ url: paymentResponse.data.redirectUrl });
+        return NextResponse.json(
+            {
+                url: paymentResponse.data.redirectUrl,
+                transactionId: orderId
+            },
+            { headers: corsHeaders }
+        );
 
     } catch (error: any) {
         console.error("Buy Course Error:", error);
         return NextResponse.json({
             error: error.message || "Internal Server Error",
             details: error.toString()
-        }, { status: 500 });
+        }, { status: 500, headers: corsHeaders });
     }
 }

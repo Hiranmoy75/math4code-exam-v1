@@ -1,29 +1,31 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import crypto from "crypto";
 
 export async function POST(req: Request) {
     try {
         const { response } = await req.json();
 
-        // 1. Skip Checksum Verification (User has no Salt Key)
-        // Ideally we should call Status API to verify, but for now we trust the callback payload structure
-        // or we can implement Status API call here.
-
-        // 2. Decode Response
+        // 1. Decode Response
         const decodedResponse = JSON.parse(Buffer.from(response, "base64").toString("utf-8"));
-        console.log("PhonePe Callback Data:", JSON.stringify(decodedResponse, null, 2));
+        console.log("🔔 PhonePe Callback Received:", JSON.stringify(decodedResponse, null, 2));
 
         const { code, merchantTransactionId, merchantOrderId, data } = decodedResponse;
         const transactionId = merchantOrderId || merchantTransactionId;
 
-        // 3. Update Payment Status
+        if (!transactionId) {
+            console.error("❌ Callback received without Transaction ID");
+            return NextResponse.json({ success: true }); // Acknowledge to stop retries
+        }
+
+        // 2. Update Payment Status
         const supabase = await createClient();
 
         // Determine status
         let status = "pending";
         if (code === "PAYMENT_SUCCESS") status = "success";
         else if (code === "PAYMENT_ERROR" || code === "PAYMENT_DECLINED") status = "failed";
+
+        console.log(`📝 Callback Status for ${transactionId}: ${status}`);
 
         // Update course_payments table
         let { data: payment, error: updateError } = await supabase
@@ -54,18 +56,16 @@ export async function POST(req: Request) {
                 isTestSeries = true;
                 updateError = null;
             } else if (tsError) {
-                console.log("Not found in payments either");
+                console.log("❌ Transaction not found in payments either:", transactionId);
             }
         }
 
         if (updateError || !payment) {
             console.error("Payment update error:", updateError);
-            // Even if update fails, we should return success to PhonePe so they stop retrying
-            // But we log it as critical error
             return NextResponse.json({ success: true });
         }
 
-        // 4. If Success, Activate Enrollment
+        // 3. If Success, Activate Enrollment
         if (status === "success") {
             if (isTestSeries) {
                 // Test Series Enrollment
@@ -82,6 +82,7 @@ export async function POST(req: Request) {
                         test_series_id: payment.series_id,
                         enrolled_at: new Date().toISOString()
                     });
+                    console.log("✅ Test Series Enrollment Created (Callback)");
                 }
             } else {
                 // Course Enrollment
@@ -100,6 +101,7 @@ export async function POST(req: Request) {
                         status: "active",
                         payment_id: payment.id
                     });
+                    console.log("✅ Course Enrollment Created (Callback)");
                 } else {
                     // Update existing enrollment
                     await supabase
@@ -109,6 +111,7 @@ export async function POST(req: Request) {
                             payment_id: payment.id
                         })
                         .eq("id", existingEnrollment.id);
+                    console.log("✅ Course Enrollment Updated (Callback)");
                 }
             }
         }
