@@ -84,55 +84,76 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
 }
 
 /**
- * Check Payment Status using Manual Fetch - uses MERCHANT_ID for verification
- * This is necessary because SDK uses CLIENT_ID which may differ from MERCHANT_ID
+ * Check Payment Status with Fallback Logic
+ * 1. Try SDK (uses CLIENT_ID)
+ * 2. If failed, try Manual with MERCHANT_ID
+ * 3. If failed, try Manual with CLIENT_ID
  */
 export async function checkPaymentStatus(merchantTransactionId: string) {
+  console.log(`🔄 Checking Payment Status for: ${merchantTransactionId}`);
+
+  // 1. Try SDK first
   try {
-    console.log(`🔄 Checking Payment Status (Manual) for: ${merchantTransactionId}`);
-
-    const merchantId = MERCHANT_ID;
-    const saltKey = CLIENT_SECRET;
-    const saltIndex = CLIENT_VERSION;
-
-    if (!merchantId || !saltKey) {
-      throw new Error("Missing Merchant ID or Client Secret");
-    }
-
-    // Construct Checksum
-    // Pattern: /pg/v1/status/{merchantId}/{merchantTransactionId} + saltKey
-    const path = `/pg/v1/status/${merchantId}/${merchantTransactionId}`;
-    const stringToHash = path + saltKey;
-    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-    const checksum = `${sha256}###${saltIndex}`;
-
-    // Determine Host
-    const host = PHONEPE_ENV === Env.PRODUCTION
-      ? "https://api.phonepe.com/apis/hermes"
-      : "https://api-preprod.phonepe.com/apis/pg-sandbox";
-
-    const url = `${host}${path}`;
-
-    console.log("   - URL:", url);
-    console.log("   - X-VERIFY:", checksum);
-    console.log("   - X-MERCHANT-ID:", merchantId);
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": checksum,
-      },
-      cache: "no-store"
-    });
-
-    const data = await response.json();
-
-    console.log("✅ Payment Status Response (Manual):", JSON.stringify(data, null, 2));
-    return data;
-
+    console.log("   - Attempt 1: SDK (Client ID)");
+    const response = await client.getTransactionStatus(merchantTransactionId);
+    console.log("   ✅ SDK Success:", JSON.stringify(response, null, 2));
+    return response;
   } catch (error: any) {
-    console.error(`❌ PhonePe Status Check Error for ${merchantTransactionId}:`, error.message);
-    return { success: false, error: error.message, state: "FAILED" };
+    console.warn("   ⚠️ SDK Check Failed:", error.message);
   }
+
+  // 2. Try Manual with MERCHANT_ID
+  try {
+    console.log("   - Attempt 2: Manual (Merchant ID)");
+    const response = await manualCheck(MERCHANT_ID!, merchantTransactionId);
+    if (response.success || response.code === "PAYMENT_SUCCESS" || response.code === "COMPLETED") {
+      console.log("   ✅ Manual (Merchant ID) Success:", JSON.stringify(response, null, 2));
+      return response;
+    }
+    console.warn("   ⚠️ Manual (Merchant ID) Failed/Pending:", response);
+  } catch (error: any) {
+    console.warn("   ⚠️ Manual (Merchant ID) Error:", error.message);
+  }
+
+  // 3. Try Manual with CLIENT_ID (if different)
+  if (CLIENT_ID && CLIENT_ID !== MERCHANT_ID) {
+    try {
+      console.log("   - Attempt 3: Manual (Client ID)");
+      const response = await manualCheck(CLIENT_ID, merchantTransactionId);
+      console.log("   ✅ Manual (Client ID) Response:", JSON.stringify(response, null, 2));
+      return response;
+    } catch (error: any) {
+      console.error("   ❌ Manual (Client ID) Error:", error.message);
+    }
+  }
+
+  return { success: false, code: "FAILED", message: "Transaction not found in all attempts" };
+}
+
+async function manualCheck(merchantId: string, transactionId: string) {
+  const saltKey = CLIENT_SECRET;
+  const saltIndex = CLIENT_VERSION;
+
+  const path = `/pg/v1/status/${merchantId}/${transactionId}`;
+  const stringToHash = path + saltKey;
+  const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+  const checksum = `${sha256}###${saltIndex}`;
+
+  const host = PHONEPE_ENV === Env.PRODUCTION
+    ? "https://api.phonepe.com/apis/hermes"
+    : "https://api-preprod.phonepe.com/apis/pg-sandbox";
+
+  const url = `${host}${path}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "X-VERIFY": checksum,
+      "X-MERCHANT-ID": merchantId,
+    },
+    cache: "no-store"
+  });
+
+  return await response.json();
 }

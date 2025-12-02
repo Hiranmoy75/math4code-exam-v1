@@ -61,16 +61,18 @@ export async function POST(req: Request) {
         // 2. Determine Status
         let status = "pending";
 
+        // Cast to any to handle SDK/Manual response type safely
+        const response = statusResponse as any;
+
         // PhonePe v2 response structure: { success: true/false, code: "...", data: { state: "COMPLETED", ... } }
-        // Handle both success response and error response
         let state = null;
 
-        if (statusResponse.success && statusResponse.data) {
+        if (response.success && response.data) {
             // Successful response - state is in data.state
-            state = statusResponse.data.state;
-        } else if (statusResponse.code) {
+            state = response.data.state;
+        } else if (response.code) {
             // Error response - use code directly
-            state = statusResponse.code;
+            state = response.code;
         }
 
         if (state === "COMPLETED" || state === "PAYMENT_SUCCESS") {
@@ -133,9 +135,9 @@ export async function POST(req: Request) {
                     await supabase.from("test_series_enrollments").insert({
                         student_id: payment.user_id,
                         test_series_id: payment.series_id,
-                        enrolled_at: new Date().toISOString()
+                        enrolled_at: new Date().toISOString(),
+                        status: 'active'
                     });
-                    console.log("✅ Test Series Enrollment Created");
                 }
             } else {
                 // Course Enrollment
@@ -147,39 +149,28 @@ export async function POST(req: Request) {
                     .single();
 
                 if (!existingEnrollment) {
-                    // Create new enrollment
                     await supabase.from("enrollments").insert({
                         user_id: payment.user_id,
                         course_id: payment.course_id,
-                        status: "active",
-                        payment_id: payment.id
+                        enrolled_at: new Date().toISOString(),
+                        progress: 0,
+                        completed: false
                     });
-                    console.log("✅ Course Enrollment Created");
-                } else {
-                    // Update existing enrollment
-                    await supabase
-                        .from("enrollments")
-                        .update({
-                            status: "active",
-                            payment_id: payment.id
-                        })
-                        .eq("id", existingEnrollment.id);
-                    console.log("✅ Course Enrollment Updated");
                 }
             }
         }
 
-        return NextResponse.json({ status: status, data: statusResponse }, { headers: corsHeaders });
+        return NextResponse.json({
+            status: status,
+            state: state,
+            data: statusResponse
+        }, { headers: corsHeaders });
 
     } catch (error: any) {
-        console.error("Status Check Error:", error);
-        return NextResponse.json({
-            error: error.message || "Internal Server Error",
-            debug: {
-                transactionId: (req as any).body?.transactionId, // Note: body already read
-                env: process.env.PHONEPE_ENV,
-                merchantId: process.env.PHONEPE_MERCHANT_ID ? "SET" : "MISSING"
-            }
-        }, { status: 500 });
+        console.error("Check status error:", error);
+        return NextResponse.json(
+            { error: error.message || "Internal server error" },
+            { status: 500, headers: corsHeaders }
+        );
     }
 }
