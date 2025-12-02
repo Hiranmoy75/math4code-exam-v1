@@ -34,52 +34,67 @@ const client = StandardCheckoutClient.getInstance(
 );
 
 /**
- * Check Payment Status using Manual Fetch (Bypassing SDK for debugging)
+ * Initiate Payment using Standard Checkout API (v2) via SDK
+ */
+export async function createPayment(merchantTransactionId: string, amount: number, userId: string) {
+  try {
+    const redirectUrl = `${DOMAIN}/api/phonepe/redirect?transactionId=${merchantTransactionId}`;
+    const callbackUrl = `${DOMAIN}/api/phonepe/callback`;
+
+    // Create MetaInfo
+    const metaInfo = MetaInfo.builder()
+      .udf1("course_purchase")
+      .udf2(userId)
+      .build();
+
+    // Build Request
+    const request = StandardCheckoutPayRequest.builder()
+      .merchantOrderId(merchantTransactionId)
+      .amount(amount * 100) // Convert to paise
+      .redirectUrl(redirectUrl)
+      .metaInfo(metaInfo)
+      .build();
+
+    // Manually add missing fields if required by specific integration types
+    (request as any).merchantUserId = userId;
+    // Force merchantTransactionId just in case SDK maps it differently
+    (request as any).merchantTransactionId = merchantTransactionId;
+
+    console.log(`🚀 Initiating Payment (SDK) for Order: ${merchantTransactionId}, Amount: ${amount}`);
+    // console.log("Request Payload:", JSON.stringify(request, null, 2));
+
+    const response = await client.pay(request);
+
+    console.log("✅ Payment Initiated Successfully. Redirect URL:", response.redirectUrl);
+
+    return {
+      success: true,
+      data: {
+        redirectUrl: response.redirectUrl
+      }
+    };
+
+  } catch (error: any) {
+    console.error("❌ PhonePe Payment Initiation Error:", error);
+    return {
+      success: false,
+      error: error.message || "Payment initiation failed",
+      details: error
+    };
+  }
+}
+
+/**
+ * Check Payment Status using Standard Checkout API (v2) via SDK
  */
 export async function checkPaymentStatus(merchantTransactionId: string) {
   try {
-    console.log(`🔄 Checking Payment Status (Manual) for: ${merchantTransactionId}`);
+    console.log(`🔄 Checking Payment Status (SDK) for: ${merchantTransactionId}`);
 
-    const merchantId = MERCHANT_ID;
-    const saltKey = CLIENT_SECRET;
-    const saltIndex = CLIENT_VERSION;
+    const response = await client.getTransactionStatus(merchantTransactionId);
 
-    if (!merchantId || !saltKey) {
-      throw new Error("Missing Merchant ID or Salt Key");
-    }
-
-    // Construct Checksum
-    // Pattern: /pg/v1/status/{merchantId}/{merchantTransactionId} + saltKey
-    const path = `/pg/v1/status/${merchantId}/${merchantTransactionId}`;
-    const stringToHash = path + saltKey;
-    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-    const checksum = `${sha256}###${saltIndex}`;
-
-    // Determine Host
-    const host = PHONEPE_ENV === Env.PRODUCTION
-      ? "https://api.phonepe.com/apis/hermes"
-      : "https://api-preprod.phonepe.com/apis/pg-sandbox";
-
-    const url = `${host}${path}`;
-
-    console.log("   - URL:", url);
-    console.log("   - X-VERIFY:", checksum);
-    console.log("   - X-MERCHANT-ID:", merchantId);
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": checksum,
-        "X-MERCHANT-ID": merchantId,
-      },
-      cache: "no-store"
-    });
-
-    const data = await response.json();
-
-    console.log("✅ Payment Status Response (Manual):", JSON.stringify(data, null, 2));
-    return data;
+    console.log("✅ Payment Status Response (SDK):", JSON.stringify(response, null, 2));
+    return response;
 
   } catch (error: any) {
     console.error(`❌ PhonePe Status Check Error for ${merchantTransactionId}:`, error.message);
