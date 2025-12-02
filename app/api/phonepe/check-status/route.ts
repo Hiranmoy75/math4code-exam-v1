@@ -56,9 +56,22 @@ export async function POST(req: Request) {
         // We pass the transactionId exactly as it was created (merchantTransactionId)
         const statusResponse = await checkPaymentStatus(transactionId);
 
+        console.log("📦 Full PhonePe Response:", JSON.stringify(statusResponse, null, 2));
+
         // 2. Determine Status
         let status = "pending";
-        const state = statusResponse.state || statusResponse.code; // Handle both v1/v2 response structures just in case
+
+        // PhonePe v2 response structure: { success: true/false, code: "...", data: { state: "COMPLETED", ... } }
+        // Handle both success response and error response
+        let state = null;
+
+        if (statusResponse.success && statusResponse.data) {
+            // Successful response - state is in data.state
+            state = statusResponse.data.state;
+        } else if (statusResponse.code) {
+            // Error response - use code directly
+            state = statusResponse.code;
+        }
 
         if (state === "COMPLETED" || state === "PAYMENT_SUCCESS") {
             status = "success";
