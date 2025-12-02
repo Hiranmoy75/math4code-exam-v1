@@ -1,8 +1,9 @@
-import { Env } from 'pg-sdk-node';
+import { StandardCheckoutClient, Env, MetaInfo, StandardCheckoutPayRequest } from 'pg-sdk-node';
 import crypto from 'crypto';
 
 // Environment Variables
 const MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID;
+const CLIENT_ID = process.env.PHONEPE_CLIENT_ID || MERCHANT_ID;
 const CLIENT_SECRET = process.env.PHONEPE_CLIENT_SECRET;
 const CLIENT_VERSION = parseInt(process.env.PHONEPE_CLIENT_VERSION || "1");
 const DOMAIN = process.env.NEXT_PUBLIC_DOMAIN || "http://localhost:3000";
@@ -17,89 +18,60 @@ if (!MERCHANT_ID || !CLIENT_SECRET) {
   console.error("❌ PhonePe Error: Missing Required Environment Variables (MERCHANT_ID or CLIENT_SECRET)");
 }
 
-console.log("💳 Initializing PhonePe Client (Manual Implementation)...");
+console.log("💳 Initializing PhonePe Client...");
 console.log("   - Env Var:", process.env.PHONEPE_ENV);
 console.log("   - Resolved Env:", isProd ? "PRODUCTION" : "SANDBOX");
 console.log("   - Merchant ID:", MERCHANT_ID);
+console.log("   - Client ID:", CLIENT_ID);
 console.log("   - Domain:", DOMAIN);
 
+// Initialize PhonePe SDK Client
+const client = StandardCheckoutClient.getInstance(
+  CLIENT_ID || "MISSING_CLIENT_ID",
+  CLIENT_SECRET || "MISSING_SECRET",
+  CLIENT_VERSION,
+  PHONEPE_ENV
+);
+
 /**
- * Initiate Payment using Manual Fetch - ensures MERCHANT_ID is used consistently
+ * Initiate Payment using SDK (Standard Checkout v2)
  */
 export async function createPayment(merchantTransactionId: string, amount: number, userId: string) {
   try {
-    const merchantId = MERCHANT_ID;
-    const saltKey = CLIENT_SECRET;
-    const saltIndex = CLIENT_VERSION;
-
-    if (!merchantId || !saltKey) {
-      throw new Error("Missing Merchant ID or Client Secret");
-    }
-
     const redirectUrl = `${DOMAIN}/api/phonepe/redirect?transactionId=${merchantTransactionId}`;
     const callbackUrl = `${DOMAIN}/api/phonepe/callback`;
 
-    // Construct Payload for Standard Checkout
-    const payload = {
-      merchantId: merchantId,
-      merchantTransactionId: merchantTransactionId,
-      merchantUserId: userId,
-      amount: amount * 100, // in paise
-      redirectUrl: redirectUrl,
-      redirectMode: "REDIRECT",
-      callbackUrl: callbackUrl,
-      paymentInstrument: {
-        type: "PAY_PAGE"
+    // Create MetaInfo
+    const metaInfo = MetaInfo.builder()
+      .udf1("course_purchase")
+      .udf2(userId)
+      .build();
+
+    // Build Request
+    const request = StandardCheckoutPayRequest.builder()
+      .merchantOrderId(merchantTransactionId)
+      .amount(amount * 100) // Convert to paise
+      .redirectUrl(redirectUrl)
+      .metaInfo(metaInfo)
+      .build();
+
+    // Manually add fields
+    (request as any).merchantUserId = userId;
+    (request as any).merchantTransactionId = merchantTransactionId;
+    (request as any).callbackUrl = callbackUrl;
+
+    console.log(`🚀 Initiating Payment (SDK) for Order: ${merchantTransactionId}, Amount: ${amount}`);
+
+    const response = await client.pay(request);
+
+    console.log("✅ Payment Initiated Successfully. Redirect URL:", response.redirectUrl);
+
+    return {
+      success: true,
+      data: {
+        redirectUrl: response.redirectUrl
       }
     };
-
-    const base64Payload = Buffer.from(JSON.stringify(payload)).toString("base64");
-
-    // Construct Checksum
-    // Pattern: base64Body + /pg/v1/pay + saltKey
-    const stringToHash = base64Payload + "/pg/v1/pay" + saltKey;
-    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-    const checksum = `${sha256}###${saltIndex}`;
-
-    // Determine Host
-    const host = PHONEPE_ENV === Env.PRODUCTION
-      ? "https://api.phonepe.com/apis/hermes"
-      : "https://api-preprod.phonepe.com/apis/pg-sandbox";
-
-    const url = `${host}/pg/v1/pay`;
-
-    console.log(`🚀 Initiating Payment (Manual) for Order: ${merchantTransactionId}, Amount: ${amount}`);
-    console.log("   - URL:", url);
-    console.log("   - Merchant ID:", merchantId);
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": checksum,
-      },
-      body: JSON.stringify({ request: base64Payload }),
-      cache: "no-store"
-    });
-
-    const data = await response.json();
-
-    console.log("✅ Payment Initiation Response (Manual):", JSON.stringify(data, null, 2));
-
-    if (data.success && data.data?.instrumentResponse?.redirectInfo?.url) {
-      return {
-        success: true,
-        data: {
-          redirectUrl: data.data.instrumentResponse.redirectInfo.url
-        }
-      };
-    } else {
-      return {
-        success: false,
-        error: data.message || "Payment initiation failed",
-        details: data
-      };
-    }
 
   } catch (error: any) {
     console.error("❌ PhonePe Payment Initiation Error:", error);
@@ -112,7 +84,8 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
 }
 
 /**
- * Check Payment Status using Manual Fetch - ensures MERCHANT_ID is used consistently
+ * Check Payment Status using Manual Fetch - uses MERCHANT_ID for verification
+ * This is necessary because SDK uses CLIENT_ID which may differ from MERCHANT_ID
  */
 export async function checkPaymentStatus(merchantTransactionId: string) {
   try {
