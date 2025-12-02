@@ -87,14 +87,54 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
 /**
  * Check Payment Status using Standard Checkout API (v2) via SDK
  */
+/**
+ * Check Payment Status using Manual Fetch to ensure correct Merchant ID usage
+ * The SDK uses the Client ID for verification, which fails if it differs from the Merchant ID.
+ */
 export async function checkPaymentStatus(merchantTransactionId: string) {
   try {
-    console.log(`🔄 Checking Payment Status (SDK) for: ${merchantTransactionId}`);
+    console.log(`🔄 Checking Payment Status (Manual) for: ${merchantTransactionId}`);
 
-    const response = await client.getTransactionStatus(merchantTransactionId);
+    const merchantId = MERCHANT_ID;
+    const saltKey = CLIENT_SECRET;
+    const saltIndex = CLIENT_VERSION;
 
-    console.log("✅ Payment Status Response (SDK):", JSON.stringify(response, null, 2));
-    return response;
+    if (!merchantId || !saltKey) {
+      throw new Error("Missing Merchant ID or Salt Key");
+    }
+
+    // Construct Checksum
+    // Pattern: /pg/v1/status/{merchantId}/{merchantTransactionId} + saltKey
+    const path = `/pg/v1/status/${merchantId}/${merchantTransactionId}`;
+    const stringToHash = path + saltKey;
+    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+    const checksum = `${sha256}###${saltIndex}`;
+
+    // Determine Host
+    const host = PHONEPE_ENV === Env.PRODUCTION
+      ? "https://api.phonepe.com/apis/hermes"
+      : "https://api-preprod.phonepe.com/apis/pg-sandbox";
+
+    const url = `${host}${path}`;
+
+    console.log("   - URL:", url);
+    console.log("   - X-VERIFY:", checksum);
+    console.log("   - X-MERCHANT-ID:", merchantId);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "X-VERIFY": checksum,
+        "X-MERCHANT-ID": merchantId,
+      },
+      cache: "no-store"
+    });
+
+    const data = await response.json();
+
+    console.log("✅ Payment Status Response (Manual):", JSON.stringify(data, null, 2));
+    return data;
 
   } catch (error: any) {
     console.error(`❌ PhonePe Status Check Error for ${merchantTransactionId}:`, error.message);
