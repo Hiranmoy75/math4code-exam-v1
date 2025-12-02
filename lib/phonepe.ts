@@ -86,8 +86,8 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
 /**
  * Check Payment Status with Fallback Logic
  * 1. Try SDK (uses CLIENT_ID)
- * 2. If failed, try Manual with MERCHANT_ID
- * 3. If failed, try Manual with CLIENT_ID
+ * 2. If failed, try Manual with MERCHANT_ID (uses CLIENT_VERSION)
+ * 3. If failed, try Manual with CLIENT_ID (uses CLIENT_VERSION)
  */
 export async function checkPaymentStatus(merchantTransactionId: string) {
   console.log(`🔄 Checking Payment Status for: ${merchantTransactionId}`);
@@ -144,6 +144,9 @@ async function manualCheck(merchantId: string, transactionId: string) {
     : "https://api-preprod.phonepe.com/apis/pg-sandbox";
 
   const url = `${host}${path}`;
+
+  console.log(`      Checking Status URL: ${url}`);
+  console.log(`      Using Salt Index (Client Version): ${saltIndex}`);
 
   const response = await fetch(url, {
     method: "GET",
