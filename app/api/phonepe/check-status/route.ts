@@ -53,7 +53,6 @@ export async function POST(req: Request) {
         }
 
         // 1. Call PhonePe Status API
-        // We pass the transactionId exactly as it was created (merchantTransactionId)
         const statusResponse = await checkPaymentStatus(transactionId);
 
         console.log("📦 Full PhonePe Response:", JSON.stringify(statusResponse, null, 2));
@@ -64,14 +63,17 @@ export async function POST(req: Request) {
         // Cast to any to handle SDK/Manual response type safely
         const response = statusResponse as any;
 
-        // PhonePe v2 response structure: { success: true/false, code: "...", data: { state: "COMPLETED", ... } }
+        // PhonePe v2 response structure (from user logs): { state: "COMPLETED", ... }
         let state = null;
 
-        if (response.success && response.data) {
-            // Successful response - state is in data.state
+        if (response.state) {
+            // Direct state property (as seen in user logs)
+            state = response.state;
+        } else if (response.success && response.data) {
+            // Nested state (standard SDK format)
             state = response.data.state;
         } else if (response.code) {
-            // Error response - use code directly
+            // Error code
             state = response.code;
         }
 
