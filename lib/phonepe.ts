@@ -1,4 +1,5 @@
 import { StandardCheckoutClient, Env, MetaInfo, StandardCheckoutPayRequest } from 'pg-sdk-node';
+import crypto from 'crypto';
 
 // Environment Variables
 const MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID;
@@ -27,66 +28,10 @@ console.log("   - Domain:", DOMAIN);
 // Initialize PhonePe Client
 const client = StandardCheckoutClient.getInstance(
   CLIENT_ID || "MISSING_CLIENT_ID",
-  CLIENT_SECRET || "MISSING_CLIENT_SECRET",
+  CLIENT_SECRET || "MISSING_SECRET",
   CLIENT_VERSION,
   PHONEPE_ENV
 );
-
-/**
- * Initiate Payment using Standard Checkout API (v2) via pg-sdk-node
- */
-export async function createPayment(orderId: string, amount: number, userId: string) {
-  try {
-    const redirectUrl = `${DOMAIN}/api/phonepe/redirect?transactionId=${orderId}`;
-    const callbackUrl = `${DOMAIN}/api/phonepe/callback`;
-
-    // Create MetaInfo
-    const metaInfo = MetaInfo.builder()
-      .udf1("course_purchase")
-      .udf2(userId)
-      .build();
-
-    // Build Request
-    const request = StandardCheckoutPayRequest.builder()
-      .merchantOrderId(orderId)
-      .amount(amount * 100) // Convert to paise
-      .redirectUrl(redirectUrl)
-      .metaInfo(metaInfo)
-      .build();
-
-    // Manually add missing fields if required by specific integration types
-    (request as any).merchantUserId = userId;
-    (request as any).callbackUrl = callbackUrl;
-
-    console.log(`🚀 Initiating Payment for Order: ${orderId}, Amount: ${amount}`);
-    // console.log("Request Payload:", JSON.stringify(request, null, 2));
-
-    const response = await client.pay(request);
-
-    console.log("✅ Payment Initiated Successfully. Redirect URL:", response.redirectUrl);
-
-    return {
-      success: true,
-      data: {
-        redirectUrl: response.redirectUrl
-      }
-    };
-
-  } catch (error: any) {
-    console.error("❌ PhonePe Payment Initiation Error:", error);
-    return {
-      success: false,
-      error: error.message || "Payment initiation failed",
-      details: error
-    };
-  }
-}
-
-import crypto from "crypto";
-
-// ... (imports)
-
-// ... (init code)
 
 /**
  * Check Payment Status using Manual Fetch (Bypassing SDK for debugging)
