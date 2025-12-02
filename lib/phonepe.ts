@@ -84,79 +84,89 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
 }
 
 /**
- * Check Payment Status with Fallback Logic
- * 1. Try SDK (uses CLIENT_ID)
- * 2. If failed, try Manual with MERCHANT_ID (uses CLIENT_VERSION)
- * 3. If failed, try Manual with CLIENT_ID (uses CLIENT_VERSION)
+ * Check Payment Status using Standard Checkout v2 (OAuth Flow)
+ * 1. Get O-Bearer Token using Client ID/Secret
+ * 2. Call v2 Status API with Token and Merchant ID
  */
 export async function checkPaymentStatus(merchantTransactionId: string) {
-  console.log(`🔄 Checking Payment Status for: ${merchantTransactionId}`);
+  console.log(`🔄 Checking Payment Status (v2 OAuth) for: ${merchantTransactionId}`);
 
-  // 1. Try SDK first
   try {
-    console.log("   - Attempt 1: SDK (Client ID)");
-    const response = await client.getTransactionStatus(merchantTransactionId);
-    console.log("   ✅ SDK Success:", JSON.stringify(response, null, 2));
-    return response;
-  } catch (error: any) {
-    console.warn("   ⚠️ SDK Check Failed:", error.message);
-  }
-
-  // 2. Try Manual with MERCHANT_ID
-  try {
-    console.log("   - Attempt 2: Manual (Merchant ID)");
-    const response = await manualCheck(MERCHANT_ID!, merchantTransactionId);
-    if (response.success || response.code === "PAYMENT_SUCCESS" || response.code === "COMPLETED") {
-      console.log("   ✅ Manual (Merchant ID) Success:", JSON.stringify(response, null, 2));
-      return response;
+    // 1. Get OAuth Token
+    const token = await getOAuthToken();
+    if (!token) {
+      throw new Error("Failed to generate OAuth token");
     }
-    console.warn("   ⚠️ Manual (Merchant ID) Failed/Pending:", response);
+
+    // 2. Call Status API
+    const pgHost = isProd
+      ? 'https://api.phonepe.com/apis/pg'
+      : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+
+    const url = `${pgHost}/checkout/v2/order/${merchantTransactionId}/status`;
+
+    console.log(`      Status URL: ${url}`);
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `O-Bearer ${token}`,
+        "X-MERCHANT-ID": MERCHANT_ID || ""
+      },
+      cache: "no-store"
+    });
+
+    const data = await response.json();
+    console.log("   ✅ Status Response:", JSON.stringify(data, null, 2));
+
+    return data;
+
   } catch (error: any) {
-    console.warn("   ⚠️ Manual (Merchant ID) Error:", error.message);
+    console.error("   ❌ Status Check Error:", error.message);
+    return { success: false, code: "FAILED", message: error.message };
   }
-
-  // 3. Try Manual with CLIENT_ID (if different)
-  if (CLIENT_ID && CLIENT_ID !== MERCHANT_ID) {
-    try {
-      console.log("   - Attempt 3: Manual (Client ID)");
-      const response = await manualCheck(CLIENT_ID, merchantTransactionId);
-      console.log("   ✅ Manual (Client ID) Response:", JSON.stringify(response, null, 2));
-      return response;
-    } catch (error: any) {
-      console.error("   ❌ Manual (Client ID) Error:", error.message);
-    }
-  }
-
-  return { success: false, code: "FAILED", message: "Transaction not found in all attempts" };
 }
 
-async function manualCheck(merchantId: string, transactionId: string) {
-  const saltKey = CLIENT_SECRET;
-  const saltIndex = CLIENT_VERSION;
+/**
+ * Helper to get OAuth Token for Standard Checkout v2
+ */
+async function getOAuthToken() {
+  try {
+    const oauthHost = isProd
+      ? 'https://api.phonepe.com/apis/identity-manager'
+      : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
 
-  const path = `/pg/v1/status/${merchantId}/${transactionId}`;
-  const stringToHash = path + saltKey;
-  const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-  const checksum = `${sha256}###${saltIndex}`;
+    const url = `${oauthHost}/v1/oauth/token`;
 
-  const host = PHONEPE_ENV === Env.PRODUCTION
-    ? "https://api.phonepe.com/apis/hermes"
-    : "https://api-preprod.phonepe.com/apis/pg-sandbox";
+    const params = new URLSearchParams();
+    params.append('grant_type', 'client_credentials');
+    params.append('client_id', CLIENT_ID || "");
+    params.append('client_secret', CLIENT_SECRET || "");
+    params.append('client_version', (CLIENT_VERSION || 1).toString());
 
-  const url = `${host}${path}`;
+    console.log(`      Getting Token from: ${url}`);
 
-  console.log(`      Checking Status URL: ${url}`);
-  console.log(`      Using Salt Index (Client Version): ${saltIndex}`);
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: params,
+      cache: "no-store"
+    });
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "X-VERIFY": checksum,
-      "X-MERCHANT-ID": merchantId,
-    },
-    cache: "no-store"
-  });
+    const data = await response.json();
 
-  return await response.json();
+    if (data && data.access_token) {
+      // console.log("      ✅ Token Generated");
+      return data.access_token;
+    } else {
+      console.error("      ❌ Token Generation Failed:", JSON.stringify(data));
+      return null;
+    }
+  } catch (error: any) {
+    console.error("      ❌ Token Error:", error.message);
+    return null;
+  }
 }
