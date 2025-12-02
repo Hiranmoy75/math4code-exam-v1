@@ -160,6 +160,13 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error("Status Check Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({
+            error: error.message || "Internal Server Error",
+            debug: {
+                transactionId: (req as any).body?.transactionId, // Note: body already read
+                env: process.env.PHONEPE_ENV,
+                merchantId: process.env.PHONEPE_MERCHANT_ID ? "SET" : "MISSING"
+            }
+        }, { status: 500 });
     }
 }
