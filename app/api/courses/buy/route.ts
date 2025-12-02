@@ -69,15 +69,7 @@ export async function POST(req: Request) {
             .eq("id", courseId)
             .single();
 
-        if (courseError) {
-            console.error("Course fetch error:", courseError);
-            return NextResponse.json(
-                { error: "Course not found" },
-                { status: 404, headers: corsHeaders }
-            );
-        }
-
-        if (!course) {
+        if (courseError || !course) {
             return NextResponse.json(
                 { error: "Course not found" },
                 { status: 404, headers: corsHeaders }
@@ -143,13 +135,12 @@ export async function POST(req: Request) {
         // For Paid Courses - Initiate Payment FIRST, then create enrollment
         console.log("Initiating PhonePe payment for amount:", course.price);
 
-        // Create a short transaction ID (max 38 chars for PhonePe)
-        // Format: ENR_timestamp_random (e.g., ENR_1700123456_ABC123)
-        const timestamp = Date.now().toString();
-        const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const orderId = `ENR_${timestamp}_${randomStr}`;
+        // Create a unique Merchant Transaction ID
+        // Format: MT_{timestamp}_{random} to ensure uniqueness and no special chars
+        // We use the same format as the initiate API for consistency
+        const merchantTransactionId = `MT${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
-        console.log("Order ID:", orderId, "Length:", orderId.length);
+        console.log(`Creating Payment Record for User: ${user.id}, Course: ${courseId}, TxnID: ${merchantTransactionId}`);
 
         // Create payment record in course_payments table
         const { error: paymentError } = await supabase
@@ -158,7 +149,7 @@ export async function POST(req: Request) {
                 user_id: user.id,
                 course_id: courseId,
                 amount: course.price,
-                transaction_id: orderId,
+                transaction_id: merchantTransactionId, // Store the exact ID
                 status: "pending",
                 payment_method: "PHONEPE"
             });
@@ -171,7 +162,9 @@ export async function POST(req: Request) {
             }, { status: 500, headers: corsHeaders });
         }
 
-        const paymentResponse = await createPayment(orderId, course.price);
+        // Initiate Payment using shared utility
+        // Pass the EXACT merchantTransactionId we just stored AND the userId
+        const paymentResponse = await createPayment(merchantTransactionId, course.price, user.id);
 
         console.log("PhonePe response:", JSON.stringify(paymentResponse, null, 2));
 
@@ -182,7 +175,7 @@ export async function POST(req: Request) {
             await supabase
                 .from("course_payments")
                 .update({ status: "failed", metadata: paymentResponse })
-                .eq("transaction_id", orderId);
+                .eq("transaction_id", merchantTransactionId);
 
             return NextResponse.json({
                 error: paymentResponse.error || "Payment initiation failed. Please check your PhonePe configuration.",
@@ -193,7 +186,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
             {
                 url: paymentResponse.data.redirectUrl,
-                transactionId: orderId
+                transactionId: merchantTransactionId
             },
             { headers: corsHeaders }
         );
