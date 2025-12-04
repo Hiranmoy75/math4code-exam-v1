@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   ArrowRight,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { useCurrentUser } from "@/hooks/student/useCurrentUser";
 import { useStudentStats } from "@/hooks/student/useStudentStats";
@@ -25,6 +26,7 @@ import { useStudentCourses } from "@/hooks/student/useStudentCourses";
 import { useAllCourses } from "@/hooks/student/useAllCourses";
 import { Button } from "@/components/ui/button";
 import { CourseThumbnail } from "@/components/ui/CourseThumbnail";
+import { useEnrollCourse } from "@/hooks";
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -46,6 +48,10 @@ export default function StudentDashboard() {
   const { data: lastAttempt } = useLastAttempt(user?.id);
   const { data: myCourses, isLoading: myCoursesLoading } = useStudentCourses(user?.id);
   const { data: allCourses, isLoading: allCoursesLoading } = useAllCourses(user?.id);
+
+  // Enrollment mutation
+  const enrollMutation = useEnrollCourse();
+  const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
 
   const fadeIn = {
     hidden: { opacity: 0, y: 20 },
@@ -70,29 +76,28 @@ export default function StudentDashboard() {
     router.push(`/learn/${courseId}`);
   };
 
-  const handleEnrollCourse = async (courseId: string, price: number) => {
+  const handleEnrollCourse = (courseId: string, price: number) => {
+    if (!user?.id) {
+      toast.error("Please log in to enroll");
+      router.push("/auth/login");
+      return;
+    }
+
     if (price === 0) {
-      // Free course - direct enrollment via API
-      try {
-        const response = await fetch("/api/courses/enroll", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ courseId }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-          // Show success message
-          alert("Successfully enrolled! Redirecting to course...");
-          router.push(`/learn/${courseId}`);
-        } else {
-          alert(data.error || "Failed to enroll in course");
+      // Free course - use mutation hook
+      setEnrollingCourseId(courseId);
+      enrollMutation.mutate(
+        { courseId, userId: user.id },
+        {
+          onSuccess: () => {
+            setEnrollingCourseId(null);
+            router.push(`/learn/${courseId}`);
+          },
+          onError: () => {
+            setEnrollingCourseId(null);
+          },
         }
-      } catch (error) {
-        console.error("Enrollment error:", error);
-        alert("Failed to enroll in course. Please try again.");
-      }
+      );
     } else {
       // Paid course - go to course page for payment
       router.push(`/courses/${courseId}`);
@@ -392,10 +397,20 @@ export default function StudentDashboard() {
                   ) : (
                     <Button
                       onClick={() => handleEnrollCourse(course.id, course.price)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700"
+                      disabled={enrollingCourseId === course.id}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                     >
-                      <ShoppingCart className="w-4 h-4 mr-2" />
-                      {course.price === 0 ? "Enroll Free" : "View Course"}
+                      {enrollingCourseId === course.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Enrolling...
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          {course.price === 0 ? "Enroll Free" : "View Course"}
+                        </>
+                      )}
                     </Button>
                   )}
                 </motion.div>

@@ -34,7 +34,21 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { RichTextEditor } from "@/components/RichTextEditor";
+import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
+
+// Code split RichTextEditor - it's a large component
+const RichTextEditor = dynamic(
+    () => import("@/components/RichTextEditor").then((mod) => ({ default: mod.RichTextEditor })),
+    {
+        loading: () => (
+            <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg border border-gray-200">
+                <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+            </div>
+        ),
+        ssr: false, // RichTextEditor uses contentEditable which doesn't work with SSR
+    }
+);
 import VideoPlayer from "@/components/VideoPlayer";
 import { generateCourseOutline } from "@/app/actions/generateCourseOutline";
 import { ExamSettingsDialog } from "@/components/ExamSettingsDialog";
