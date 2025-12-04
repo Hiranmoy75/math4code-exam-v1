@@ -69,8 +69,44 @@ export default function AllTestSeriesPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <div className="min-h-screen p-4 md:p-10 bg-gradient-to-br from-white via-sky-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-black transition">
+        <div className="max-w-7xl mx-auto">
+          {/* Header Skeleton */}
+          <div className="text-center mb-10 animate-pulse">
+            <div className="h-10 w-96 bg-slate-200 dark:bg-slate-700 rounded mx-auto mb-3" />
+            <div className="h-4 w-[500px] bg-slate-100 dark:bg-slate-600 rounded mx-auto" />
+          </div>
+
+          {/* Search Bar Skeleton */}
+          <div className="mb-8 animate-pulse">
+            <div className="h-14 max-w-2xl mx-auto bg-white dark:bg-slate-900/70 rounded-2xl border border-slate-200 dark:border-slate-700" />
+          </div>
+
+          {/* Cards Grid Skeleton */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="rounded-3xl p-6 bg-white/90 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 shadow-xl animate-pulse">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="h-6 w-3/4 bg-slate-200 dark:bg-slate-700 rounded" />
+                  <div className="h-6 w-16 bg-emerald-100 dark:bg-emerald-900/40 rounded-full" />
+                </div>
+                <div className="h-4 w-full bg-slate-100 dark:bg-slate-600 rounded mb-2" />
+                <div className="h-4 w-2/3 bg-slate-100 dark:bg-slate-600 rounded mb-4" />
+                <div className="flex items-center gap-4 mb-5">
+                  <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
+                  <div className="h-4 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+                </div>
+                <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <div className="h-8 w-24 bg-slate-200 dark:bg-slate-700 rounded" />
+                  <div className="flex gap-2">
+                    <div className="h-8 w-8 bg-slate-200 dark:bg-slate-700 rounded" />
+                    <div className="h-8 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
