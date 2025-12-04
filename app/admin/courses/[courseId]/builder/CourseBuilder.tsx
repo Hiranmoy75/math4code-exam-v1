@@ -49,7 +49,16 @@ const RichTextEditor = dynamic(
         ssr: false, // RichTextEditor uses contentEditable which doesn't work with SSR
     }
 );
-import VideoPlayer from "@/components/VideoPlayer";
+
+// Lazy load VideoPlayer for better performance
+const VideoPlayer = dynamic(() => import("@/components/VideoPlayer"), {
+    loading: () => (
+        <div className="aspect-video bg-slate-100 rounded-lg flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+        </div>
+    ),
+    ssr: false,
+});
 import { generateCourseOutline } from "@/app/actions/generateCourseOutline";
 import { ExamSettingsDialog } from "@/components/ExamSettingsDialog";
 

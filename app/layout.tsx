@@ -10,31 +10,44 @@ import { Toaster } from "sonner"
 import AIMentor from "@/components/landing/AIMentor"
 import { RewardInitializerWrapper } from "@/components/RewardInitializerWrapper"
 
-const _geist = Geist({
+const geist = Geist({
   subsets: ["latin"],
-  display: "swap",
+  display: "swap", // Prevents invisible text during font load
   preload: true,
+  variable: "--font-geist",
 })
-const _geistMono = Geist_Mono({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
   display: "swap",
   preload: true,
+  variable: "--font-geist-mono",
 })
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // Disable pinch zoom for app-like feel
-  viewportFit: "cover", // Use full screen area including notch
-  themeColor: "#ffffff",
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+  ],
 }
 
 export const metadata: Metadata = {
-  title: "math4code - Online Exam System",
-  description: "Premium online exam system for IIT JEE and IIT JAM preparation",
-  generator: "Hiranmoy Mandal",
-  manifest: "/manifest.json", // Link to manifest
+  metadataBase: new URL("https://www.math4code.com"),
+  title: {
+    default: "Math4Code - Master IIT JEE & JAM with Expert Online Courses",
+    template: "%s | Math4Code",
+  },
+  description: "Premium online exam system for IIT JEE and IIT JAM preparation. Expert-curated courses, practice tests, and personalized learning paths to ace your exams.",
+  keywords: ["IIT JEE", "IIT JAM", "online courses", "exam preparation", "mathematics", "physics", "chemistry", "test series"],
+  authors: [{ name: "Hiranmoy Mandal" }],
+  creator: "Hiranmoy Mandal",
+  publisher: "Math4Code",
+  generator: "Next.js",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -42,7 +55,31 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png", // You should add this icon
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://www.math4code.com",
+    title: "Math4Code - Master IIT JEE & JAM",
+    description: "Expert-curated courses and test series for IIT JEE and JAM preparation",
+    siteName: "Math4Code",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Math4Code - Master IIT JEE & JAM",
+    description: "Expert-curated courses and test series for IIT JEE and JAM preparation",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 }
 
