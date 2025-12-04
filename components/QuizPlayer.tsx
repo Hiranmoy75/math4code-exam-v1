@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { EmbeddedExam, PreviousResultView } from "@/components/EmbeddedExam"
 import { Button } from "@/components/ui/button"
 import { Clock, FileQuestion, ListChecks, Trophy } from "lucide-react"
@@ -27,7 +27,7 @@ export function QuizPlayer({ exam, attempts, userId, questionsCount, maxAttempts
     const [selectedAttempt, setSelectedAttempt] = useState<any>(null)
 
     // Fetch attempts with React Query to ensure freshness after submission
-    const { data: attemptsData } = useQuery({
+    const { data: attemptsData, refetch } = useQuery({
         queryKey: ["exam-attempts", exam.id, userId],
         queryFn: async () => {
             const supabase = createClient()
@@ -41,7 +41,8 @@ export function QuizPlayer({ exam, attempts, userId, questionsCount, maxAttempts
         },
         initialData: attempts,
         staleTime: 0,
-        refetchOnMount: true
+        refetchOnMount: true,
+        refetchOnWindowFocus: true
     })
 
     // Determine status
@@ -52,7 +53,10 @@ export function QuizPlayer({ exam, attempts, userId, questionsCount, maxAttempts
 
     // Calculate attempts left (only relevant if limit is not null)
     const attemptsLeft = limit !== null && limit !== undefined ? Math.max(0, limit - completedAttempts.length) : Infinity
-    const hasAttempted = completedAttempts.length > 0
+
+    // Check if there is an active attempt (not submitted)
+    const activeAttempt = (attemptsData || []).find((a: any) => a.status !== 'submitted')
+    const hasAttempted = completedAttempts.length > 0 || !!activeAttempt
 
     const handleStart = () => {
         setView("exam")
@@ -63,8 +67,15 @@ export function QuizPlayer({ exam, attempts, userId, questionsCount, maxAttempts
         setView("result")
     }
 
+    // Refetch attempts when returning to landing view
+    useEffect(() => {
+        if (view === "landing") {
+            refetch()
+        }
+    }, [view, refetch])
+
     if (view === "exam") {
-        return <EmbeddedExam examId={exam.id} onExit={() => setView("landing")} isRetake={hasAttempted} />
+        return <EmbeddedExam examId={exam.id} onExit={() => setView("landing")} isRetake={hasAttempted && !activeAttempt} />
     }
 
     if (view === "result") {
@@ -89,49 +100,76 @@ export function QuizPlayer({ exam, attempts, userId, questionsCount, maxAttempts
     }
 
     return (
-        <div className="bg-white dark:bg-[#0d1117] rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+        <div className="bg-card dark:bg-card rounded-xl border border-border p-8 shadow-sm">
             <div className="flex flex-col md:flex-row items-start gap-8">
                 <div className="flex-1 space-y-6">
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{exam.title}</h2>
-                        <p className="text-slate-500 dark:text-slate-400">{exam.description || "Test your knowledge with this quiz."}</p>
+                        <h2 className="text-2xl font-bold text-foreground mb-2">{exam.title}</h2>
+                        <p className="text-muted-foreground">{exam.description || "Test your knowledge with this quiz."}</p>
                     </div>
 
                     <div className="space-y-3">
-                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                            <FileQuestion className="w-5 h-5 text-blue-500" />
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                            <FileQuestion className="w-5 h-5 text-primary" />
                             <span className="font-medium">{questionsCount} questions</span>
                         </div>
-                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                            <Clock className="w-5 h-5 text-blue-500" />
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                            <Clock className="w-5 h-5 text-primary" />
                             <span className="font-medium">{exam.duration_minutes} minutes</span>
                         </div>
-                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                            <ListChecks className="w-5 h-5 text-blue-500" />
-                            <span className={`font-medium ${limit && attemptsLeft === 0 ? "text-rose-500" : ""}`}>
+                        <div className="flex items-center gap-3 text-muted-foreground">
+                            <ListChecks className="w-5 h-5 text-primary" />
+                            <span className={`font-medium ${limit && attemptsLeft === 0 ? "text-destructive" : ""}`}>
                                 {limit ? `${attemptsLeft} of ${limit} Attempts left` : "Unlimited Attempts"}
                             </span>
                         </div>
                     </div>
 
                     {/* Attempts History */}
-                    {hasAttempted && (
-                        <div className="mt-6 border-t border-slate-200 dark:border-slate-800 pt-6">
-                            <h3 className="font-semibold mb-4 text-slate-900 dark:text-white">Your Attempts</h3>
+                    {(completedAttempts.length > 0 || activeAttempt) && (
+                        <div className="mt-6 border-t border-border pt-6">
+                            <h3 className="font-semibold mb-4 text-foreground">Your Attempts</h3>
                             <div className="space-y-3">
+                                {/* Show active attempt first if exists */}
+                                {activeAttempt && (
+                                    <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border border-primary">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                                                {completedAttempts.length + 1}
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-medium text-foreground">
+                                                    Attempt {completedAttempts.length + 1}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    In Progress • Started {new Date(activeAttempt.created_at).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            onClick={handleStart}
+                                            className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground"
+                                        >
+                                            Resume
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Show completed attempts */}
                                 {completedAttempts.map((attempt, idx) => {
                                     const resultData = Array.isArray(attempt.result) ? attempt.result[0] : attempt.result
                                     return (
-                                        <div key={attempt.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800">
+                                        <div key={attempt.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm">
+                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                                                     {completedAttempts.length - idx}
                                                 </div>
                                                 <div>
-                                                    <div className="text-sm font-medium text-slate-900 dark:text-white">
+                                                    <div className="text-sm font-medium text-foreground">
                                                         Attempt {completedAttempts.length - idx}
                                                     </div>
-                                                    <div className="text-xs text-slate-500">
+                                                    <div className="text-xs text-muted-foreground">
                                                         {new Date(attempt.submitted_at).toLocaleDateString()} • Score: {resultData?.score ?? resultData?.obtained_marks ?? "N/A"}
                                                     </div>
                                                 </div>
@@ -152,20 +190,20 @@ export function QuizPlayer({ exam, attempts, userId, questionsCount, maxAttempts
                     )}
 
                     <div className="flex flex-wrap gap-3 pt-4">
-                        {(limit === null || limit === undefined || attemptsLeft > 0) && (
+                        {(limit === null || limit === undefined || attemptsLeft > 0 || activeAttempt) && (
                             <Button
                                 onClick={handleStart}
-                                className={hasAttempted ? "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:text-slate-300" : "bg-indigo-600 hover:bg-indigo-700 text-white"}
+                                className={activeAttempt ? "bg-primary hover:bg-primary/90 text-primary-foreground" : (hasAttempted ? "bg-background border border-border text-foreground hover:bg-muted" : "bg-primary hover:bg-primary/90 text-primary-foreground")}
                             >
-                                {hasAttempted ? "Retake Exam" : "Start Exam"}
+                                {activeAttempt ? "Resume Exam" : (hasAttempted ? "Retake Exam" : "Start Exam")}
                             </Button>
                         )}
                     </div>
                 </div>
 
                 <div className="hidden md:block w-1/3">
-                    <div className="aspect-square bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center">
-                        <Trophy className="w-24 h-24 text-indigo-200 dark:text-indigo-800" />
+                    <div className="aspect-square bg-primary/10 rounded-full flex items-center justify-center">
+                        <Trophy className="w-24 h-24 text-primary/40" />
                     </div>
                 </div>
             </div>

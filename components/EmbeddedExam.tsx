@@ -11,7 +11,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
     Clock, CheckCircle2, Loader2, ArrowLeft, Flag, TrendingUp, Award, Target, BarChart3,
-    Menu, X, AlertTriangle, Save, ListChecks, Maximize, Minimize
+    Menu, X, AlertTriangle, Save, ListChecks, Maximize, Minimize, PauseCircle
 } from "lucide-react"
 import { renderWithLatex } from "@/lib/renderWithLatex"
 import { useRouter } from "next/navigation"
@@ -50,14 +50,14 @@ function QuestionAnalysisView({
     const activeSection = structured[activeSectionIdx]
 
     return (
-        <div className="bg-[#0d1117] rounded-xl border border-slate-800 overflow-hidden shadow-sm flex flex-col h-[80vh]">
+        <div className="bg-background rounded-xl border border-border overflow-hidden shadow-sm flex flex-col h-[80vh]">
             {/* Header */}
-            <div className="bg-[#161b22] border-b border-slate-800 p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="bg-card border-b border-border p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                    <Button variant="ghost" size="sm" onClick={onBack} className="text-slate-400 hover:text-white px-0 md:px-3">
+                    <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground px-0 md:px-3">
                         <ArrowLeft className="w-4 h-4 mr-2" /> <span className="hidden md:inline">Back to Result</span><span className="md:hidden">Back</span>
                     </Button>
-                    <h2 className="text-lg font-bold text-white truncate">Question Analysis</h2>
+                    <h2 className="text-lg font-bold text-foreground truncate">Question Analysis</h2>
                 </div>
                 <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0 no-scrollbar">
                     {structured.map((s, i) => (
@@ -65,8 +65,8 @@ function QuestionAnalysisView({
                             key={s.id}
                             onClick={() => setActiveSectionIdx(i)}
                             className={`px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap ${activeSectionIdx === i
-                                ? "bg-blue-600 text-white"
-                                : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
                                 }`}
                         >
                             {s.title}
@@ -83,25 +83,25 @@ function QuestionAnalysisView({
                     const isSkipped = userAns === undefined || userAns === null || (Array.isArray(userAns) && userAns.length === 0)
 
                     return (
-                        <div key={q.id} className={`p-4 md:p-6 rounded-xl border ${isCorrect ? "border-green-900/30 bg-green-900/5" :
-                            isSkipped ? "border-slate-800 bg-slate-800/20" :
-                                "border-rose-900/30 bg-rose-900/5"
+                        <div key={q.id} className={`p-4 md:p-6 rounded-xl border ${isCorrect ? "border-emerald-500/30 bg-emerald-500/5" :
+                            isSkipped ? "border-border bg-muted/20" :
+                                "border-rose-500/30 bg-rose-500/5"
                             }`}>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">
+                                    <span className="text-sm font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
                                         Q{idx + 1}
                                     </span>
-                                    {isCorrect && <span className="text-xs font-bold text-green-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Correct</span>}
-                                    {!isCorrect && !isSkipped && <span className="text-xs font-bold text-rose-400 flex items-center gap-1"><X className="w-3 h-3" /> Incorrect</span>}
-                                    {isSkipped && <span className="text-xs font-bold text-slate-500 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Skipped</span>}
+                                    {isCorrect && <span className="text-xs font-bold text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Correct</span>}
+                                    {!isCorrect && !isSkipped && <span className="text-xs font-bold text-rose-500 flex items-center gap-1"><X className="w-3 h-3" /> Incorrect</span>}
+                                    {isSkipped && <span className="text-xs font-bold text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Skipped</span>}
                                 </div>
-                                <div className="text-xs text-slate-500">
+                                <div className="text-xs text-muted-foreground">
                                     Marks: {isCorrect ? `+${q.marks}` : isSkipped ? "0" : `-${q.negative_marks}`}
                                 </div>
                             </div>
 
-                            <div className="text-base text-slate-200 mb-6">
+                            <div className="text-base text-foreground mb-6">
                                 {renderWithLatex(q.question_text)}
                             </div>
 
@@ -110,15 +110,15 @@ function QuestionAnalysisView({
                                     const isSelected = isOptionSelected(q, opt.id, userAns)
                                     const isRightOption = isOptionCorrect(q, opt.id)
 
-                                    let optClass = "border-slate-700 bg-slate-800/50 text-slate-400"
-                                    if (isRightOption) optClass = "border-green-600 bg-green-900/20 text-green-300 ring-1 ring-green-600"
-                                    else if (isSelected && !isRightOption) optClass = "border-rose-600 bg-rose-900/20 text-rose-300 ring-1 ring-rose-600"
+                                    let optClass = "border-border bg-muted/30 text-muted-foreground"
+                                    if (isRightOption) optClass = "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500"
+                                    else if (isSelected && !isRightOption) optClass = "border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-1 ring-rose-500"
 
                                     return (
                                         <div key={opt.id} className={`p-3 rounded-lg border flex items-center gap-3 ${optClass}`}>
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isRightOption ? "bg-green-600 text-white" :
-                                                isSelected ? "bg-rose-600 text-white" :
-                                                    "border border-slate-600"
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isRightOption ? "bg-emerald-500 text-white" :
+                                                isSelected ? "bg-rose-500 text-white" :
+                                                    "border border-muted-foreground/30"
                                                 }`}>
                                                 {isRightOption ? <CheckCircle2 className="w-3 h-3" /> : isSelected ? <X className="w-3 h-3" /> : String.fromCharCode(65 + idx)}
                                             </div>
@@ -127,19 +127,19 @@ function QuestionAnalysisView({
                                     )
                                 })}
                                 {q.question_type === "NAT" && (
-                                    <div className="p-3 rounded-lg border border-slate-700 bg-slate-800/50">
-                                        <div className="text-sm text-slate-400 mb-1">Correct Answer: <span className="text-green-400 font-mono">{q.correct_answer}</span></div>
-                                        <div className="text-sm text-slate-400">Your Answer: <span className={`${isCorrect ? "text-green-400" : "text-rose-400"} font-mono`}>{userAns ?? "N/A"}</span></div>
+                                    <div className="p-3 rounded-lg border border-border bg-muted/30">
+                                        <div className="text-sm text-muted-foreground mb-1">Correct Answer: <span className="text-emerald-500 font-mono">{q.correct_answer}</span></div>
+                                        <div className="text-sm text-muted-foreground">Your Answer: <span className={`${isCorrect ? "text-emerald-500" : "text-rose-500"} font-mono`}>{userAns ?? "N/A"}</span></div>
                                     </div>
                                 )}
                             </div>
 
                             {q.explanation && (
-                                <div className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-4">
-                                    <h4 className="text-sm font-bold text-blue-400 mb-2 flex items-center gap-2">
+                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                                    <h4 className="text-sm font-bold text-blue-500 mb-2 flex items-center gap-2">
                                         <TrendingUp className="w-4 h-4" /> Explanation
                                     </h4>
-                                    <div className="text-sm text-slate-300">
+                                    <div className="text-sm text-foreground/90">
                                         {renderWithLatex(q.explanation)}
                                     </div>
                                 </div>
@@ -234,10 +234,10 @@ export function PreviousResultView({
     if (!resultData || !resultData.result) {
         return (
             <div className="flex items-center justify-center h-96">
-                <div className="text-center p-8 bg-[#161b22] rounded-xl border border-slate-800">
-                    <h3 className="text-lg font-bold text-amber-400 mb-2">Result Not Found</h3>
-                    <p className="text-slate-400 text-sm mb-4">Could not find the result for this attempt.</p>
-                    <Button onClick={onRetake} className="bg-indigo-600 hover:bg-indigo-700">
+                <div className="text-center p-8 bg-card rounded-xl border border-border">
+                    <h3 className="text-lg font-bold text-amber-500 mb-2">Result Not Found</h3>
+                    <p className="text-muted-foreground text-sm mb-4">Could not find the result for this attempt.</p>
+                    <Button onClick={onRetake} className="bg-primary hover:bg-primary/90">
                         Retake Quiz
                     </Button>
                 </div>
@@ -265,17 +265,17 @@ export function PreviousResultView({
 
     if (!isResultVisible()) {
         return (
-            <div className="bg-[#0d1117] rounded-xl border border-slate-800 p-8 text-center">
-                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Clock className="w-8 h-8 text-slate-400" />
+            <div className="bg-background rounded-xl border border-border p-8 text-center">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Clock className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Results Not Yet Available</h3>
-                <p className="text-slate-400 max-w-md mx-auto mb-6">
+                <h3 className="text-xl font-bold text-foreground mb-2">Results Not Yet Available</h3>
+                <p className="text-muted-foreground max-w-md mx-auto mb-6">
                     {visibility === "scheduled" && releaseTime
                         ? `The results for this exam will be released on ${new Date(releaseTime).toLocaleString()}.`
                         : "The instructor has not released the results for this exam yet."}
                 </p>
-                <Button onClick={onRetake} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800">
+                <Button onClick={onRetake} variant="outline" className="border-border text-foreground hover:bg-muted">
                     Back to Exam
                 </Button>
             </div>
@@ -287,7 +287,7 @@ export function PreviousResultView({
     }
 
     return (
-        <div className="bg-[#0d1117] rounded-xl border border-slate-800 overflow-hidden shadow-sm">
+        <div className="bg-background rounded-xl border border-border overflow-hidden shadow-sm">
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 text-center">
                 <Award className="w-16 h-16 mx-auto mb-4" />
                 <h2 className="text-2xl font-bold mb-2">Quiz Result</h2>
@@ -309,27 +309,27 @@ export function PreviousResultView({
                         <div className="text-xl md:text-2xl font-bold text-purple-300">{result.percentage?.toFixed(1) || 0}%</div>
                         <div className="text-xs text-purple-400 font-medium">Percentage</div>
                     </div>
-                    <div className={`bg-gradient-to-br p-3 md:p-4 rounded-xl border text-center col-span-2 md:col-span-1 ${passed ? 'from-green-900/50 to-green-800/50 border-green-700' : 'from-amber-900/50 to-amber-800/50 border-amber-700'}`}>
+                    <div className={`bg-gradient-to-br p-3 md:p-4 rounded-xl border text-center col-span-2 md:col-span-1 ${passed ? 'from-emerald-500/20 to-emerald-600/20 border-emerald-500/50' : 'from-amber-500/20 to-amber-600/20 border-amber-500/50'}`}>
                         {passed ? (
                             <>
-                                <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-green-400" />
-                                <div className="text-xl md:text-2xl font-bold text-green-300">Passed</div>
+                                <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-emerald-500" />
+                                <div className="text-xl md:text-2xl font-bold text-emerald-600 dark:text-emerald-400">Passed</div>
                             </>
                         ) : (
                             <>
-                                <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-amber-400" />
-                                <div className="text-xl md:text-2xl font-bold text-amber-300">Not Passed</div>
+                                <AlertTriangle className="w-6 h-6 md:w-8 md:h-8 mx-auto mb-2 text-amber-500" />
+                                <div className="text-xl md:text-2xl font-bold text-amber-600 dark:text-amber-400">Not Passed</div>
                             </>
                         )}
-                        <div className="text-xs text-slate-400 font-medium">Status</div>
+                        <div className="text-xs text-muted-foreground font-medium">Status</div>
                     </div>
                 </div>
 
                 {/* Section Analysis */}
                 {structured && structured.length > 0 && (
                     <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                            <BarChart3 className="w-5 h-5 text-indigo-400" />
+                        <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            <BarChart3 className="w-5 h-5 text-primary" />
                             Section Analysis
                         </h3>
                         <div className="grid gap-4">
@@ -338,33 +338,33 @@ export function PreviousResultView({
                                 const totalQuestions = section.questions.length
 
                                 return (
-                                    <div key={section.id} className="bg-[#161b22] p-4 rounded-xl border border-slate-800">
+                                    <div key={section.id} className="bg-card p-4 rounded-xl border border-border">
                                         <div className="flex justify-between items-center mb-4">
-                                            <h4 className="font-medium text-slate-200">{section.title}</h4>
-                                            <span className="text-xs text-slate-500">{totalQuestions} Questions</span>
+                                            <h4 className="font-medium text-foreground">{section.title}</h4>
+                                            <span className="text-xs text-muted-foreground">{totalQuestions} Questions</span>
                                         </div>
 
                                         {secResult ? (
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-                                                    <div className="text-slate-400 text-xs">Score</div>
-                                                    <div className="font-semibold text-blue-400">{secResult.obtained_marks} / {secResult.total_marks}</div>
+                                                <div className="bg-muted/50 p-2 rounded-lg border border-border">
+                                                    <div className="text-muted-foreground text-xs">Score</div>
+                                                    <div className="font-semibold text-blue-500">{secResult.obtained_marks} / {secResult.total_marks}</div>
                                                 </div>
-                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-                                                    <div className="text-slate-400 text-xs">Correct</div>
-                                                    <div className="font-semibold text-green-400">{secResult.correct_answers}</div>
+                                                <div className="bg-muted/50 p-2 rounded-lg border border-border">
+                                                    <div className="text-muted-foreground text-xs">Correct</div>
+                                                    <div className="font-semibold text-emerald-500">{secResult.correct_answers}</div>
                                                 </div>
-                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-                                                    <div className="text-slate-400 text-xs">Wrong</div>
-                                                    <div className="font-semibold text-rose-400">{secResult.wrong_answers}</div>
+                                                <div className="bg-muted/50 p-2 rounded-lg border border-border">
+                                                    <div className="text-muted-foreground text-xs">Wrong</div>
+                                                    <div className="font-semibold text-rose-500">{secResult.wrong_answers}</div>
                                                 </div>
-                                                <div className="bg-slate-800/50 p-2 rounded-lg border border-slate-700">
-                                                    <div className="text-slate-400 text-xs">Unanswered</div>
-                                                    <div className="font-semibold text-slate-400">{secResult.unanswered}</div>
+                                                <div className="bg-muted/50 p-2 rounded-lg border border-border">
+                                                    <div className="text-muted-foreground text-xs">Unanswered</div>
+                                                    <div className="font-semibold text-muted-foreground">{secResult.unanswered}</div>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="text-sm text-slate-500 italic">
+                                            <div className="text-sm text-muted-foreground italic">
                                                 No detailed result available for this section.
                                             </div>
                                         )}
@@ -388,7 +388,7 @@ export function PreviousResultView({
                     )}
                     <Button
                         onClick={onRetake}
-                        className="bg-indigo-600 hover:bg-indigo-700"
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                         <Flag className="w-4 w-4 mr-2" />
                         Retake Quiz
@@ -396,7 +396,7 @@ export function PreviousResultView({
                     <Button
                         onClick={() => window.location.reload()}
                         variant="outline"
-                        className="border-slate-700 text-slate-300 hover:bg-slate-800"
+                        className="border-border text-foreground hover:bg-muted"
                     >
                         Continue Learning
                     </Button>
@@ -430,6 +430,8 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
     const [paletteOpenMobile, setPaletteOpenMobile] = useState(false)
     const [retakeAttempt, setRetakeAttempt] = useState(isRetake ? 1 : 0)
     const [submittedAttemptId, setSubmittedAttemptId] = useState<string | null>(null)
+    const [showPauseDialog, setShowPauseDialog] = useState(false)
+    const [isPausing, setIsPausing] = useState(false)
     const { markComplete } = useLessonContext()
 
     // Auth check
@@ -504,6 +506,40 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
             if (document.exitFullscreen) {
                 await document.exitFullscreen()
             }
+        }
+    }
+
+    const handlePauseAndExit = () => {
+        setShowPauseDialog(true)
+    }
+
+    const confirmPauseAndExit = async () => {
+        setIsPausing(true)
+        try {
+            if (sessionData?.attempt?.id) {
+                // Wait for timer update to complete
+                await new Promise<void>((resolve, reject) => {
+                    updateTimer(
+                        { attemptId: sessionData.attempt.id, timeSpent: sessionData.exam.duration_minutes * 60 - secondsLeft },
+                        {
+                            onSuccess: () => resolve(),
+                            onError: (error) => reject(error)
+                        }
+                    )
+                })
+            }
+
+            // Invalidate queries to ensure fresh data on return
+            await queryClient.invalidateQueries({ queryKey: ["exam-attempts", examId, userId] })
+            await queryClient.invalidateQueries({ queryKey: ["exam-session"] })
+
+            setShowPauseDialog(false)
+            if (onExit) onExit()
+        } catch (error) {
+            console.error("Error pausing exam:", error)
+            toast.error("Failed to save progress")
+        } finally {
+            setIsPausing(false)
         }
     }
 
@@ -607,7 +643,7 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
         )
     }
 
-    if (error || !sessionData) {
+    if (error || (!sessionData && !isLoading)) {
         const errorMessage = (error as Error)?.message || "Unknown error"
         const isAlreadySubmitted = errorMessage.includes("already been submitted")
 
@@ -625,9 +661,9 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
 
         return (
             <div className="flex items-center justify-center h-96">
-                <div className="text-center p-8 bg-rose-50 rounded-xl border border-rose-200">
-                    <h3 className="text-lg font-bold text-rose-900 mb-2">Failed to Load Quiz</h3>
-                    <p className="text-rose-700 text-sm">{errorMessage}</p>
+                <div className="text-center p-8 bg-rose-50 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-800">
+                    <h3 className="text-lg font-bold text-rose-900 dark:text-rose-400 mb-2">Failed to Load Quiz</h3>
+                    <p className="text-rose-700 dark:text-rose-500 text-sm">{errorMessage}</p>
                 </div>
             </div>
         )
@@ -651,14 +687,16 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
     }
 
     // Quiz Interface - Dark theme with collapsible sidebar
+    if (!sessionData) return null
+
     return (
-        <div ref={examContainerRef} className="grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-[#0d1117] text-white rounded-xl overflow-hidden border border-slate-800 h-full">
+        <div ref={examContainerRef} className="grid grid-cols-1 lg:grid-cols-[1fr_360px] bg-background text-foreground rounded-xl overflow-hidden border border-border h-full">
             {/* LEFT PANEL */}
-            <div className="p-3 md:p-6 relative bg-[#0d1117]">
+            <div className="p-3 md:p-6 relative bg-background">
                 {/* HEADER NAV */}
-                <div className="bg-[#161b22] border border-slate-800 py-3 px-3 md:px-4 rounded-xl flex flex-wrap items-center justify-between gap-2 md:gap-3 shadow-sm mb-4">
+                <div className="bg-card border border-border py-3 px-3 md:px-4 rounded-xl flex flex-wrap items-center justify-between gap-2 md:gap-3 shadow-sm mb-4">
                     <div className="flex flex-col flex-1 min-w-0">
-                        <h2 className="text-base md:text-lg font-bold text-blue-400 truncate">{sessionData.exam.title}</h2>
+                        <h2 className="text-base md:text-lg font-bold text-primary truncate">{sessionData.exam.title}</h2>
                         <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
                             {sessionData.sections.map((s, i) => {
                                 const startIdx = sessionData.sections.slice(0, i).reduce((a, b) => a + b.questions.length, 0)
@@ -668,8 +706,8 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                         key={s.id}
                                         onClick={() => setActiveQuestionIdx(startIdx)}
                                         className={`px-2 md:px-3 py-1 text-xs rounded-md whitespace-nowrap transition-colors ${isActive
-                                            ? "bg-blue-600 text-white shadow-md"
-                                            : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                                            ? "bg-primary text-primary-foreground shadow-md"
+                                            : "bg-muted text-muted-foreground hover:bg-muted/80"
                                             }`}
                                     >
                                         {s.title}
@@ -695,8 +733,8 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                             )}
                         </div>
 
-                        <div className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 rounded-full border text-xs md:text-sm ${secondsLeft < 300 ? 'bg-rose-900/50 text-rose-300 border-rose-700 animate-pulse' : 'bg-emerald-900/50 text-emerald-300 border-emerald-700'}`}>
-                            <Clock className={`w-3 h-3 md:w-4 md:h-4 ${secondsLeft < 300 ? 'text-rose-400' : 'text-emerald-400'}`} />
+                        <div className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1 rounded-full border text-xs md:text-sm ${secondsLeft < 300 ? 'bg-rose-500/10 text-rose-500 border-rose-500/30 animate-pulse' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'}`}>
+                            <Clock className={`w-3 h-3 md:w-4 md:h-4 ${secondsLeft < 300 ? 'text-rose-500' : 'text-emerald-500'}`} />
                             <div className="font-semibold tabular-nums">{formatTime(secondsLeft)}</div>
                         </div>
                         <button
@@ -706,15 +744,22 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                             Submit
                         </button>
                         <button
+                            onClick={handlePauseAndExit}
+                            className="hidden sm:flex items-center gap-2 bg-muted hover:bg-muted/80 text-muted-foreground px-3 md:px-4 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-colors shadow-sm"
+                        >
+                            <PauseCircle className="w-4 h-4" />
+                            <span className="hidden lg:inline">Pause & Exit</span>
+                        </button>
+                        <button
                             onClick={toggleFullscreen}
-                            className="p-2 rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
+                            className="p-2 rounded-md bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
                             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                         >
                             {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
                         </button>
                         <button
                             onClick={() => setPaletteOpenMobile(true)}
-                            className="block lg:hidden bg-blue-600 text-white px-2 md:px-3 py-1.5 md:py-2 rounded-md text-sm"
+                            className="block lg:hidden bg-primary text-primary-foreground px-2 md:px-3 py-1.5 md:py-2 rounded-md text-sm"
                         >
                             <Menu className="w-4 h-4" />
                         </button>
@@ -729,19 +774,19 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -10 }}
                         transition={{ duration: 0.2 }}
-                        className="p-4 md:p-6 bg-[#161b22] rounded-2xl shadow-sm border border-slate-800"
+                        className="p-4 md:p-6 bg-card rounded-2xl shadow-sm border border-border"
                     >
                         <div className="flex justify-between items-start mb-4 flex-wrap gap-2">
-                            <div className="text-xs md:text-sm font-medium text-slate-400 bg-slate-800 px-2 py-1 rounded">
+                            <div className="text-xs md:text-sm font-medium text-muted-foreground bg-muted px-2 py-1 rounded">
                                 Question {activeQuestionIdx + 1}
                             </div>
-                            <div className="text-xs md:text-sm text-slate-400">
-                                Marks: <span className="font-semibold text-emerald-400">+{currentQuestion?.marks}</span> |
-                                Negative: <span className="font-semibold text-rose-400">-{currentQuestion?.negative_marks}</span>
+                            <div className="text-xs md:text-sm text-muted-foreground">
+                                Marks: <span className="font-semibold text-emerald-500">+{currentQuestion?.marks}</span> |
+                                Negative: <span className="font-semibold text-rose-500">-{currentQuestion?.negative_marks}</span>
                             </div>
                         </div>
 
-                        <div className="text-base md:text-lg font-medium mb-6 leading-relaxed text-slate-100">
+                        <div className="text-base md:text-lg font-medium mb-6 leading-relaxed text-foreground">
                             {renderWithLatex(currentQuestion?.question_text)}
                         </div>
 
@@ -756,19 +801,19 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                             key={opt.id}
                                             onClick={() => handleSaveResponse(currentQuestion.id, opt.id)}
                                             className={`w-full text-left p-3 md:p-4 rounded-xl border transition-all duration-200 flex items-center gap-3 md:gap-4 group ${chosen
-                                                ? "bg-blue-900/30 border-blue-500 shadow-sm ring-1 ring-blue-500"
-                                                : "bg-slate-800/50 border-slate-700 hover:border-blue-400 hover:bg-slate-800"
+                                                ? "bg-primary/10 border-primary shadow-sm ring-1 ring-primary"
+                                                : "bg-muted/30 border-border hover:border-primary hover:bg-muted/50"
                                                 }`}
                                         >
                                             <div
                                                 className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs md:text-sm font-bold transition-colors ${chosen
-                                                    ? "bg-blue-600 text-white"
-                                                    : "border border-slate-600 text-slate-400 group-hover:border-blue-400 group-hover:text-blue-400"
+                                                    ? "bg-primary text-primary-foreground"
+                                                    : "border border-muted-foreground/30 text-muted-foreground group-hover:border-primary group-hover:text-primary"
                                                     }`}
                                             >
                                                 {optionLabel}
                                             </div>
-                                            <span className="text-sm md:text-base text-slate-200 group-hover:text-white">{renderWithLatex(opt.option_text)}</span>
+                                            <span className="text-sm md:text-base text-foreground group-hover:text-foreground">{renderWithLatex(opt.option_text)}</span>
                                         </button>
                                     )
                                 })}
@@ -788,27 +833,27 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                                 handleSaveResponse(currentQuestion.id, next)
                                             }}
                                             className={`w-full text-left p-3 md:p-4 rounded-xl border transition-all duration-200 flex items-center gap-3 md:gap-4 group ${checked
-                                                ? "bg-amber-900/30 border-amber-500 shadow-sm ring-1 ring-amber-500"
-                                                : "bg-slate-800/50 border-slate-700 hover:border-amber-400 hover:bg-slate-800"
+                                                ? "bg-amber-500/10 border-amber-500 shadow-sm ring-1 ring-amber-500"
+                                                : "bg-muted/30 border-border hover:border-amber-500 hover:bg-muted/50"
                                                 }`}
                                         >
                                             <div
-                                                className={`w-6 h-6 rounded flex-shrink-0 flex items-center justify-center text-xs md:text-sm font-bold transition-colors ${checked ? "bg-amber-500 text-white" : "border border-slate-600 text-slate-400 group-hover:border-amber-400"
+                                                className={`w-6 h-6 rounded flex-shrink-0 flex items-center justify-center text-xs md:text-sm font-bold transition-colors ${checked ? "bg-amber-500 text-white" : "border border-muted-foreground/30 text-muted-foreground group-hover:border-amber-500"
                                                     }`}
                                             >
                                                 {optionLabel}
                                             </div>
-                                            <span className="text-sm md:text-base text-slate-200 group-hover:text-white">{renderWithLatex(opt.option_text)}</span>
+                                            <span className="text-sm md:text-base text-foreground group-hover:text-foreground">{renderWithLatex(opt.option_text)}</span>
                                         </button>
                                     )
                                 })}
 
                             {currentQuestion?.question_type === "NAT" && (
                                 <div className="mt-2">
-                                    <label className="block text-sm font-medium text-slate-300 mb-2">Your Answer:</label>
+                                    <label className="block text-sm font-medium text-foreground mb-2">Your Answer:</label>
                                     <input
                                         type="number"
-                                        className="w-full max-w-md p-3 rounded-lg border border-slate-700 bg-slate-800 text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all text-sm md:text-base"
+                                        className="w-full max-w-md p-3 rounded-lg border border-border bg-background text-foreground focus:border-primary focus:ring-2 focus:ring-primary/50 outline-none transition-all text-sm md:text-base"
                                         placeholder="Enter numeric value..."
                                         value={responses[currentQuestion.id] || ""}
                                         onChange={(e) => handleSaveResponse(currentQuestion.id, e.target.value)}
@@ -818,18 +863,18 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                         </div>
 
                         {/* ACTION BUTTONS */}
-                        <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-slate-800 flex flex-wrap justify-between items-center gap-2 md:gap-3">
+                        <div className="mt-6 md:mt-8 pt-4 md:pt-6 border-t border-border flex flex-wrap justify-between items-center gap-2 md:gap-3">
                             <div className="flex gap-2 flex-wrap">
                                 <button
                                     onClick={prevQuestion}
                                     disabled={activeQuestionIdx === 0}
-                                    className="px-3 md:px-4 py-1.5 md:py-2 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors text-xs md:text-sm"
+                                    className="px-3 md:px-4 py-1.5 md:py-2 border border-border text-foreground rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-colors text-xs md:text-sm"
                                 >
                                     <ArrowLeft className="w-3 h-3 md:w-4 md:h-4" /> Previous
                                 </button>
                                 <button
                                     onClick={() => handleSaveResponse(currentQuestion.id, null)}
-                                    className="px-3 md:px-4 py-1.5 md:py-2 border border-slate-700 text-slate-300 rounded-lg hover:bg-slate-800 transition-colors text-xs md:text-sm"
+                                    className="px-3 md:px-4 py-1.5 md:py-2 border border-border text-foreground rounded-lg hover:bg-muted transition-colors text-xs md:text-sm"
                                 >
                                     Clear
                                 </button>
@@ -839,8 +884,8 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                         nextQuestion()
                                     }}
                                     className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg flex items-center gap-2 transition-colors text-xs md:text-sm ${marked[currentQuestion.id]
-                                        ? "bg-amber-600 text-white hover:bg-amber-700"
-                                        : "border border-amber-600 text-amber-400 hover:bg-amber-900/30"
+                                        ? "bg-amber-500 text-white hover:bg-amber-600"
+                                        : "border border-amber-500 text-amber-500 hover:bg-amber-500/10"
                                         }`}
                                 >
                                     <Flag className="w-3 h-3 md:w-4 md:h-4" /> {marked[currentQuestion.id] ? "Marked" : "Mark"}
@@ -849,7 +894,7 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                             <div className="flex gap-2">
                                 <button
                                     onClick={nextQuestion}
-                                    className="px-4 md:px-6 py-1.5 md:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-colors text-xs md:text-sm"
+                                    className="px-4 md:px-6 py-1.5 md:py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-sm transition-colors text-xs md:text-sm"
                                 >
                                     Save & Next
                                 </button>
@@ -860,13 +905,13 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
             </div>
 
             {/* RIGHT PALETTE (Desktop) */}
-            <div className="hidden lg:flex flex-col bg-[#161b22] border-l border-slate-800 overflow-hidden">
-                <div className="p-5 border-b border-slate-800">
-                    <h4 className="font-bold text-slate-200">Question Palette</h4>
-                    <div className="flex gap-4 mt-4 text-xs text-slate-400 flex-wrap">
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-green-500"></div> Answered</div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-400"></div> Marked</div>
-                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-blue-900 border border-blue-700"></div> Visited</div>
+            <div className="hidden lg:flex flex-col bg-card border-l border-border overflow-hidden">
+                <div className="p-5 border-b border-border">
+                    <h4 className="font-bold text-foreground">Question Palette</h4>
+                    <div className="flex gap-4 mt-4 text-xs text-muted-foreground flex-wrap">
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-emerald-500"></div> Answered</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-amber-500"></div> Marked</div>
+                        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-primary/30 border border-primary"></div> Visited</div>
                     </div>
                 </div>
 
@@ -875,13 +920,13 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                         {allQuestions.map((q, i) => {
                             const status = qStatus(q)
                             const isMarked = marked[q.id]
-                            let cls = "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                            let cls = "bg-muted text-muted-foreground hover:bg-muted/80"
 
-                            if (status === "answered") cls = "bg-green-500 text-white shadow-sm"
-                            else if (isMarked) cls = "bg-amber-400 text-white shadow-sm"
-                            else if (status === "visited") cls = "bg-blue-900 text-blue-300 border border-blue-700"
+                            if (status === "answered") cls = "bg-emerald-500 text-white shadow-sm"
+                            else if (isMarked) cls = "bg-amber-500 text-white shadow-sm"
+                            else if (status === "visited") cls = "bg-primary/30 text-primary border border-primary"
 
-                            if (activeQuestionIdx === i) cls += " ring-2 ring-offset-1 ring-offset-[#161b22] ring-blue-500"
+                            if (activeQuestionIdx === i) cls += " ring-2 ring-offset-1 ring-offset-card ring-primary"
 
                             return (
                                 <button
@@ -896,7 +941,7 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                     </div>
                 </div>
 
-                <div className="p-5 border-t border-slate-800 bg-[#0d1117]">
+                <div className="p-5 border-t border-border bg-background">
                     <button
                         onClick={() => setShowSubmitDialog(true)}
                         className="w-full bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl font-bold shadow-sm transition-colors"
@@ -922,12 +967,12 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                             animate={{ x: 0 }}
                             exit={{ x: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="fixed inset-y-0 right-0 z-50 w-80 bg-[#161b22] shadow-2xl border-l border-slate-800 lg:hidden flex flex-col"
+                            className="fixed inset-y-0 right-0 z-50 w-80 bg-card shadow-2xl border-l border-border lg:hidden flex flex-col"
                         >
-                            <div className="p-4 flex items-center justify-between border-b border-slate-800">
-                                <h4 className="font-bold text-slate-200">Question Palette</h4>
-                                <button onClick={() => setPaletteOpenMobile(false)} className="p-2 hover:bg-slate-800 rounded-full">
-                                    <X className="w-5 h-5 text-slate-400" />
+                            <div className="p-4 flex items-center justify-between border-b border-border">
+                                <h4 className="font-bold text-foreground">Question Palette</h4>
+                                <button onClick={() => setPaletteOpenMobile(false)} className="p-2 hover:bg-muted rounded-full">
+                                    <X className="w-5 h-5 text-muted-foreground" />
                                 </button>
                             </div>
                             <div className="flex-1 overflow-y-auto p-4">
@@ -935,13 +980,13 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                     {allQuestions.map((q, i) => {
                                         const status = qStatus(q)
                                         const isMarked = marked[q.id]
-                                        let cls = "bg-slate-800 text-slate-400"
+                                        let cls = "bg-muted text-muted-foreground"
 
-                                        if (status === "answered") cls = "bg-green-500 text-white"
-                                        else if (isMarked) cls = "bg-amber-400 text-white"
-                                        else if (status === "visited") cls = "bg-blue-900 text-blue-300 border border-blue-700"
+                                        if (status === "answered") cls = "bg-emerald-500 text-white"
+                                        else if (isMarked) cls = "bg-amber-500 text-white"
+                                        else if (status === "visited") cls = "bg-primary/30 text-primary border border-primary"
 
-                                        if (activeQuestionIdx === i) cls += " ring-2 ring-offset-1 ring-offset-[#161b22] ring-blue-500"
+                                        if (activeQuestionIdx === i) cls += " ring-2 ring-offset-1 ring-offset-card ring-primary"
 
                                         return (
                                             <button
@@ -958,7 +1003,7 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                     })}
                                 </div>
                             </div>
-                            <div className="p-4 border-t border-slate-800">
+                            <div className="p-4 border-t border-border">
                                 <button
                                     onClick={() => {
                                         setPaletteOpenMobile(false)
@@ -990,33 +1035,33 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.95, opacity: 0 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="bg-[#161b22] w-full max-w-md rounded-2xl border border-slate-800 shadow-2xl overflow-hidden"
+                                className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl overflow-hidden"
                             >
                                 <div className="p-6 text-center">
-                                    <div className="w-16 h-16 bg-rose-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
                                         <AlertTriangle className="w-8 h-8 text-rose-500" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-white mb-2">Submit Exam?</h3>
-                                    <p className="text-slate-400 mb-6">
+                                    <h3 className="text-xl font-bold text-foreground mb-2">Submit Exam?</h3>
+                                    <p className="text-muted-foreground mb-6">
                                         Are you sure you want to submit? You won't be able to change your answers after this.
                                     </p>
 
-                                    <div className="bg-slate-800/50 rounded-lg p-4 mb-6 text-sm">
+                                    <div className="bg-muted/50 rounded-lg p-4 mb-6 text-sm">
                                         <div className="flex justify-between mb-2">
-                                            <span className="text-slate-400">Answered</span>
-                                            <span className="text-green-400 font-semibold">
+                                            <span className="text-muted-foreground">Answered</span>
+                                            <span className="text-emerald-500 font-semibold">
                                                 {Object.values(responses).filter(v => v !== null && (Array.isArray(v) ? v.length > 0 : true)).length}
                                             </span>
                                         </div>
                                         <div className="flex justify-between mb-2">
-                                            <span className="text-slate-400">Marked for Review</span>
-                                            <span className="text-amber-400 font-semibold">
+                                            <span className="text-muted-foreground">Marked for Review</span>
+                                            <span className="text-amber-500 font-semibold">
                                                 {Object.values(marked).filter(Boolean).length}
                                             </span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span className="text-slate-400">Unanswered</span>
-                                            <span className="text-slate-300 font-semibold">
+                                            <span className="text-muted-foreground">Unanswered</span>
+                                            <span className="text-foreground font-semibold">
                                                 {allQuestions.length - Object.values(responses).filter(v => v !== null && (Array.isArray(v) ? v.length > 0 : true)).length}
                                             </span>
                                         </div>
@@ -1025,7 +1070,7 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                     <div className="flex gap-3">
                                         <button
                                             onClick={() => setShowSubmitDialog(false)}
-                                            className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 font-medium transition-colors"
+                                            className="flex-1 py-2.5 rounded-xl border border-border text-foreground hover:bg-muted font-medium transition-colors"
                                         >
                                             Cancel
                                         </button>
@@ -1041,6 +1086,65 @@ export function EmbeddedExam({ examId, onExit, isRetake = false }: EmbeddedExamP
                                                 </>
                                             ) : (
                                                 "Submit Now"
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* PAUSE CONFIRMATION DIALOG */}
+            <AnimatePresence>
+                {showPauseDialog && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowPauseDialog(false)}
+                            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+                        >
+                            <motion.div
+                                initial={{ scale: 0.95, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.95, opacity: 0 }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-card w-full max-w-md rounded-2xl border border-border shadow-2xl overflow-hidden"
+                            >
+                                <div className="p-6 text-center">
+                                    <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <PauseCircle className="w-8 h-8 text-amber-500" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-foreground mb-2">Pause & Exit?</h3>
+                                    <p className="text-muted-foreground mb-6">
+                                        Your progress will be saved and you can resume this exam later.
+                                    </p>
+
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setShowPauseDialog(false)}
+                                            className="flex-1 py-2.5 rounded-xl border border-border text-foreground hover:bg-muted font-medium transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={confirmPauseAndExit}
+                                            disabled={isPausing}
+                                            className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium shadow-lg shadow-amber-900/20 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {isPausing ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <PauseCircle className="w-4 h-4" />
+                                                    Pause & Exit
+                                                </>
                                             )}
                                         </button>
                                     </div>
