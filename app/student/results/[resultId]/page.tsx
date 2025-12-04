@@ -5,10 +5,10 @@ import { SectionBarChart } from "./components/SectionBarChart"
 import { AnswerPieChart } from "./components/AnswerPieChart"
 import { SectionTable } from "./components/SectionTable"
 
-export default async function ResultDetailPage({ params , searchParams  }: { params: { resultId: string },searchParams: { attemptId?: string } }) {
+export default async function ResultDetailPage({ params, searchParams }: { params: Promise<{ resultId: string }>, searchParams: Promise<{ attemptId?: string }> }) {
   const supabase = await createClient()
-  const { resultId } = await params; 
-   const attemptId = searchParams.attemptId
+  const { resultId } = await params;
+  const { attemptId } = await searchParams
 
   console.log("Result ID:", resultId)
   console.log("Attempt ID:", attemptId)
@@ -57,28 +57,28 @@ export default async function ResultDetailPage({ params , searchParams  }: { par
       bg-gradient-to-b from-white via-slate-50 to-slate-100 
       dark:from-slate-900 dark:via-slate-950 dark:to-black 
       rounded-2xl md:rounded-3xl shadow-lg overflow-x-hidden">
-      
-      <ResultHeader title={result.exam_attempts.exams.title} attemptId={attemptId} />
 
-      <div className="mt-6 sm:mt-8">
-        <ScoreSummary
-          totalScore={result.obtained_marks}
-          totalMarks={result.total_marks}
-          percentage={result.percentage}
-          rank={result.rank}
-        />
+        <ResultHeader title={result.exam_attempts.exams.title} attemptId={attemptId} />
+
+        <div className="mt-6 sm:mt-8">
+          <ScoreSummary
+            totalScore={result.obtained_marks}
+            totalMarks={result.total_marks}
+            percentage={result.percentage}
+            rank={result.rank}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-8">
+          <SectionBarChart data={chartData || []} />
+          <AnswerPieChart data={pieData} />
+        </div>
+
+        <div className="mt-8">
+          <SectionTable data={sectionResults || []} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-8">
-        <SectionBarChart data={chartData || []} />
-        <AnswerPieChart data={pieData} />
-      </div>
-
-      <div className="mt-8">
-        <SectionTable data={sectionResults || []} />
-      </div>
-    </div>
-    
     </>
   )
 }

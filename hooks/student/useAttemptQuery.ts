@@ -29,9 +29,9 @@ export const useAttemptQuery = (attemptId?: string) => {
           // for each question load options
           for (const q of questions || []) {
             const { data: opts } = await supabase.from("options").select("id,option_text,is_correct,option_order").eq("question_id", q.id).order("option_order");
-            q.options = opts || [];
+            (q as any).options = opts || [];
           }
-          s.questions = questions || [];
+          (s as any).questions = questions || [];
         }
       }
 

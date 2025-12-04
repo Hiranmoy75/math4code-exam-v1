@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import React from "react";
 
 export const LoaderOne = () => {
-  const transition = (x: number) => {
+  const transition = (x: number): any => {
     return {
       duration: 1,
       repeat: Infinity,
@@ -49,7 +49,7 @@ export const LoaderOne = () => {
 };
 
 export const LoaderTwo = () => {
-  const transition = (x: number) => {
+  const transition = (x: number): any => {
     return {
       duration: 2,
       repeat: Infinity,
@@ -131,7 +131,7 @@ export const LoaderFour = ({ text = "Loading..." }: { text?: string }) => {
         animate={{
           skew: [0, -40, 0],
           scaleX: [1, 2, 1],
-        }}
+        } as any}
         transition={{
           duration: 0.05,
           repeat: Infinity,

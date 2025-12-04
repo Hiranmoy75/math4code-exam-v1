@@ -138,7 +138,7 @@ export default function ExamsTable() {
             </motion.div>
           ) : !exams || exams.length === 0 ? (
             <EmptyExams />
-          ) : filteredExams.length === 0 ? (
+          ) : filteredExams?.length === 0 ? (
             <div className="text-center py-12">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 mb-4">
                 <Search className="w-8 h-8 text-slate-400" />
@@ -153,7 +153,7 @@ export default function ExamsTable() {
           ) : (
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
-                {filteredExams.map((exam: any, index: number) => (
+                {filteredExams?.map((exam: any, index: number) => (
                   <motion.div
                     key={exam.id}
                     initial={{ opacity: 0, y: 20 }}

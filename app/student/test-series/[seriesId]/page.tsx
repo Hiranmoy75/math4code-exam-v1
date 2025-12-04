@@ -9,8 +9,9 @@ import { revalidatePath } from "next/cache"
 export default async function StudentTestSeriesPage({
   params,
 }: {
-  params: { seriesId: string }
+  params: Promise<{ seriesId: string }>
 }) {
+  const { seriesId } = await params
   const supabase = await createClient()
   const {
     data: { user },
@@ -21,19 +22,19 @@ export default async function StudentTestSeriesPage({
     supabase
       .from("test_series")
       .select("*")
-      .eq("id", params.seriesId)
+      .eq("id", seriesId)
       .eq("status", "published")
       .single(),
     supabase
       .from("test_series_enrollments")
       .select("*")
-      .eq("test_series_id", params.seriesId)
+      .eq("test_series_id", seriesId)
       .eq("student_id", user?.id)
       .single(),
     supabase
       .from("test_series_exams")
       .select("*, exams(*)")
-      .eq("test_series_id", params.seriesId)
+      .eq("test_series_id", seriesId)
       .order("exam_order", { ascending: true }),
   ])
 
@@ -124,12 +125,12 @@ export default async function StudentTestSeriesPage({
 
     await supabase.from("test_series_enrollments").insert([
       {
-        test_series_id: params.seriesId,
+        test_series_id: seriesId,
         student_id: user?.id,
       },
     ])
 
-    revalidatePath(`/student/test-series/${params.seriesId}`)
+    revalidatePath(`/student/test-series/${seriesId}`)
   }
 
   return (
