@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import CommunitySettingsClient from "./CommunitySettingsClient";
 
 interface CommunitySettingsPageProps {
-    params: {
+    params: Promise<{
         courseId: string;
-    };
+    }>;
 }
 
 export default async function CommunitySettingsPage({ params }: CommunitySettingsPageProps) {
+    const { courseId } = await params;
     const supabase = await createClient();
 
     // Get user
@@ -32,7 +33,7 @@ export default async function CommunitySettingsPage({ params }: CommunitySetting
     const { data: course } = await supabase
         .from("courses")
         .select("id, title, community_enabled")
-        .eq("id", params.courseId)
+        .eq("id", courseId)
         .eq("creator_id", user.id)
         .single();
 
@@ -44,12 +45,12 @@ export default async function CommunitySettingsPage({ params }: CommunitySetting
     const { data: channels } = await supabase
         .from("community_channels")
         .select("*")
-        .eq("course_id", params.courseId)
+        .eq("course_id", courseId)
         .order("created_at", { ascending: true });
 
     return (
         <CommunitySettingsClient
-            courseId={params.courseId}
+            courseId={courseId}
             courseTitle={course.title}
             communityEnabled={course.community_enabled}
             initialChannels={channels || []}

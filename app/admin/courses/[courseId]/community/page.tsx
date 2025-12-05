@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import AdminCommunityClient from "./AdminCommunityClient";
 
 interface AdminCommunityPageProps {
-    params: {
+    params: Promise<{
         courseId: string;
-    };
+    }>;
 }
 
 export default async function AdminCommunityPage({ params }: AdminCommunityPageProps) {
+    const { courseId } = await params;
     const supabase = await createClient();
 
     // Get user
@@ -32,7 +33,7 @@ export default async function AdminCommunityPage({ params }: AdminCommunityPageP
     const { data: course } = await supabase
         .from("courses")
         .select("id, title, community_enabled, creator_id")
-        .eq("id", params.courseId)
+        .eq("id", courseId)
         .single();
 
     if (!course || course.creator_id !== user.id) {
@@ -52,5 +53,5 @@ export default async function AdminCommunityPage({ params }: AdminCommunityPageP
         );
     }
 
-    return <AdminCommunityClient courseId={params.courseId} userProfile={profile} courseTitle={course.title} />;
+    return <AdminCommunityClient courseId={courseId} userProfile={profile} courseTitle={course.title} />;
 }
