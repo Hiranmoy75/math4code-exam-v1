@@ -77,7 +77,16 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [rewarded, setRewarded] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
-    const { markComplete } = useLessonContext();
+
+    // Make lesson context optional - it may not exist in admin builder
+    let markComplete: (() => void) | null = null;
+    try {
+        const context = useLessonContext();
+        markComplete = context.markComplete;
+    } catch (error) {
+        // Context not available (e.g., in admin builder), that's okay
+        markComplete = null;
+    }
 
     // Missing state variables
     const [showControls, setShowControls] = useState(true);
@@ -207,8 +216,10 @@ export default function VideoPlayer({ url, className = "", thumbUrl }: VideoPlay
                 if (res.success && res.message) {
                     toast.success(res.message, { icon: "🪙" });
                 }
-                // Mark lesson complete via context
-                markComplete();
+                // Mark lesson complete via context (if available)
+                if (markComplete) {
+                    markComplete();
+                }
             }
         }
     };
