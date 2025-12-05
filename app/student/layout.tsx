@@ -50,6 +50,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     { icon: "home", label: "Dashboard", href: "/student/dashboard" },
     { icon: "bookopen", label: "My Courses", href: "/student/dashboard?tab=my-courses" },
     { icon: "layers", label: "All Courses", href: "/student/dashboard?tab=all-courses" },
+    { icon: "messagesquare", label: "Community", href: "/student/community" },
     { icon: "trendingup", label: "My Series", href: "/student/my-series" },
     { icon: "award", label: "Result", href: "/student/results" },
     { icon: "gift", label: "Rewards", href: "/student/rewards" },

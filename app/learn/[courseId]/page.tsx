@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { PlayCircle, FileText, HelpCircle, Check, Copy, ChevronLeft, ChevronRight, Video, AlignLeft } from "lucide-react";
+import { PlayCircle, FileText, HelpCircle, Check, Copy, ChevronLeft, ChevronRight, Video, AlignLeft, Users } from "lucide-react";
 import { EmbeddedExam } from "@/components/EmbeddedExam";
 import { CoursePlayerClient } from "@/components/CoursePlayerClient";
 import { LessonTracker } from "@/components/LessonTracker";
@@ -365,8 +365,22 @@ export default async function CoursePlayerPage({
                                             </div>
                                         </TabsContent>
                                         <TabsContent value="discussion" className="pt-8">
-                                            <div className="p-8 border border-dashed border-border rounded-xl text-center">
-                                                <p className="text-muted-foreground">Discussion thread placeholder.</p>
+                                            <div className="p-8 border border-dashed border-border rounded-xl text-center flex flex-col items-center gap-4">
+                                                <div className="bg-emerald-100 dark:bg-emerald-900/20 p-4 rounded-full">
+                                                    <Users className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-lg font-semibold mb-2">Join the Discussion</h3>
+                                                    <p className="text-muted-foreground max-w-md mx-auto mb-6">
+                                                        Connect with other learners, ask questions, and share your progress in our community channels.
+                                                    </p>
+                                                    <Link href={`/learn/${courseId}/community`}>
+                                                        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                                                            <Users className="h-4 w-4" />
+                                                            Go to Community
+                                                        </Button>
+                                                    </Link>
+                                                </div>
                                             </div>
                                         </TabsContent>
                                         <TabsContent value="notes" className="pt-8">

@@ -62,7 +62,8 @@ export function CourseThumbnail({
         "from-cyan-400 via-blue-600 to-slate-700",
     ];
 
-    const hash = [...title].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const safeTitle = title || "Untitled Course";
+    const hash = [...safeTitle].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
     const gradientIndex = hash % gradients.length;
     const selectedGradient = gradients[gradientIndex];
 
@@ -125,7 +126,7 @@ export function CourseThumbnail({
                 {/* Title */}
                 <div className="flex items-end justify-between">
                     <h3 className="text-lg md:text-xl font-bold text-white leading-tight line-clamp-3 drop-shadow-md">
-                        {title}
+                        {safeTitle}
                     </h3>
 
                     <span className="text-5xl text-white/20 font-serif italic select-none">∫</span>
@@ -134,4 +135,3 @@ export function CourseThumbnail({
         </div>
     );
 }
-    

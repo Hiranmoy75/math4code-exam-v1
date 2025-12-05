@@ -33,7 +33,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { PlayCircle, FileText, ChevronLeft, ChevronRight, HelpCircle, Menu, X, PanelLeftClose, PanelLeft, CheckCircle, BookOpen, Video, Share2, User, Book } from "lucide-react"
+import { PlayCircle, FileText, ChevronLeft, ChevronRight, HelpCircle, Menu, X, PanelLeftClose, PanelLeft, CheckCircle, BookOpen, Video, Share2, User, Book, Users } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { AnimatePresence, motion } from "framer-motion"
@@ -397,6 +397,13 @@ export function CoursePlayerClient({
                                 <DropdownMenuItem>Log out</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+
+                        <Link href={`/learn/${courseId}/community`}>
+                            <Button size="sm" variant="ghost" className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground">
+                                <Users className="h-4 w-4" />
+                                Community
+                            </Button>
+                        </Link>
 
                         <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 hidden sm:flex">
                             <Share2 className="h-4 w-4" />

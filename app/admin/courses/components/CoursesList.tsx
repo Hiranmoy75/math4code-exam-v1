@@ -15,7 +15,8 @@ import {
     Users,
     Clock,
     DollarSign,
-    BarChart
+    BarChart,
+    MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ import {
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useDeleteCourse } from "@/hooks/admin/useAdminCourses";
+import { CommunityToggle } from "@/components/admin/CommunityToggle";
 
 interface Course {
     id: string;
@@ -55,6 +57,7 @@ interface Course {
     thumbnail_url: string | null;
     created_at: string;
     creator_id: string;
+    community_enabled: boolean;
 }
 
 interface CoursesListProps {
@@ -292,31 +295,47 @@ function CourseCard({ course, index, onDelete }: { course: Course; index: number
                     </div>
                 </CardContent>
 
-                <CardFooter className="p-4 pt-0 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center justify-between gap-2 mt-auto">
-                    <div className="flex items-center gap-1">
-                        <CourseLearnersDialog courseId={course.id} courseTitle={course.title} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Link href={`/admin/courses/${course.id}/builder`} className="flex-1">
-                            <Button variant="outline" size="sm" className="w-full hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 border-slate-200 dark:border-slate-700">
-                                <Edit className="h-4 w-4 mr-2" /> Manage
-                            </Button>
-                        </Link>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                    <MoreVertical className="h-4 w-4" />
+                <CardFooter className="p-4 pt-0 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col gap-3 mt-auto">
+                    {/* Community Toggle */}
+                    <CommunityToggle
+                        courseId={course.id}
+                        initialEnabled={course.community_enabled || false}
+                    />
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-between gap-2 w-full">
+                        <div className="flex items-center gap-1">
+                            <CourseLearnersDialog courseId={course.id} courseTitle={course.title} />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {course.community_enabled && (
+                                <Link href={`/admin/courses/${course.id}/community`}>
+                                    <Button variant="outline" size="sm" className="hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 border-slate-200 dark:border-slate-700">
+                                        <MessageSquare className="h-4 w-4 mr-2" /> Community
+                                    </Button>
+                                </Link>
+                            )}
+                            <Link href={`/admin/courses/${course.id}/builder`}>
+                                <Button variant="outline" size="sm" className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 border-slate-200 dark:border-slate-700">
+                                    <Edit className="h-4 w-4 mr-2" /> Manage
                                 </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
-                                    onClick={onDelete}
-                                >
-                                    <Trash className="mr-2 h-4 w-4" /> Delete
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            </Link>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                        <MoreVertical className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                        className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20"
+                                        onClick={onDelete}
+                                    >
+                                        <Trash className="mr-2 h-4 w-4" /> Delete
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
                 </CardFooter>
             </Card>
