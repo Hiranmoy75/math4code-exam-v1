@@ -1,5 +1,6 @@
 import { StandardCheckoutClient, Env, MetaInfo, StandardCheckoutPayRequest } from 'pg-sdk-node';
 import crypto from 'crypto';
+import { logger } from './logger';
 
 // Environment Variables
 const MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID;
@@ -15,15 +16,15 @@ const PHONEPE_ENV = isProd ? Env.PRODUCTION : Env.SANDBOX;
 
 // Validation
 if (!MERCHANT_ID || !CLIENT_SECRET) {
-  console.error("❌ PhonePe Error: Missing Required Environment Variables (MERCHANT_ID or CLIENT_SECRET)");
+  logger.error("❌ PhonePe Error: Missing Required Environment Variables (MERCHANT_ID or CLIENT_SECRET)");
 }
 
-console.log("💳 Initializing PhonePe Client...");
-console.log("   - Env Var:", process.env.PHONEPE_ENV);
-console.log("   - Resolved Env:", isProd ? "PRODUCTION" : "SANDBOX");
-console.log("   - Merchant ID:", MERCHANT_ID);
-console.log("   - Client ID:", CLIENT_ID);
-console.log("   - Domain:", DOMAIN);
+logger.log("💳 Initializing PhonePe Client...");
+logger.log("   - Env Var:", process.env.PHONEPE_ENV);
+logger.log("   - Resolved Env:", isProd ? "PRODUCTION" : "SANDBOX");
+logger.log("   - Merchant ID:", MERCHANT_ID);
+logger.log("   - Client ID:", CLIENT_ID);
+logger.log("   - Domain:", DOMAIN);
 
 // Initialize PhonePe SDK Client
 const client = StandardCheckoutClient.getInstance(
@@ -60,11 +61,11 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
     (request as any).merchantTransactionId = merchantTransactionId;
     (request as any).callbackUrl = callbackUrl;
 
-    console.log(`🚀 Initiating Payment (SDK) for Order: ${merchantTransactionId}, Amount: ${amount}`);
+    logger.log(`🚀 Initiating Payment (SDK) for Order: ${merchantTransactionId}, Amount: ${amount}`);
 
     const response = await client.pay(request);
 
-    console.log("✅ Payment Initiated Successfully. Redirect URL:", response.redirectUrl);
+    logger.log("✅ Payment Initiated Successfully. Redirect URL:", response.redirectUrl);
 
     return {
       success: true,
@@ -74,7 +75,7 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
     };
 
   } catch (error: any) {
-    console.error("❌ PhonePe Payment Initiation Error:", error);
+    logger.error("❌ PhonePe Payment Initiation Error:", error);
     return {
       success: false,
       error: error.message || "Payment initiation failed",
@@ -89,7 +90,7 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
  * 2. Call v2 Status API with Token and Merchant ID
  */
 export async function checkPaymentStatus(merchantTransactionId: string) {
-  console.log(`🔄 Checking Payment Status (v2 OAuth) for: ${merchantTransactionId}`);
+  logger.log(`🔄 Checking Payment Status (v2 OAuth) for: ${merchantTransactionId}`);
 
   try {
     // 1. Get OAuth Token
@@ -105,7 +106,7 @@ export async function checkPaymentStatus(merchantTransactionId: string) {
 
     const url = `${pgHost}/checkout/v2/order/${merchantTransactionId}/status`;
 
-    console.log(`      Status URL: ${url}`);
+    logger.log(`      Status URL: ${url}`);
 
     const response = await fetch(url, {
       method: "GET",
@@ -118,12 +119,12 @@ export async function checkPaymentStatus(merchantTransactionId: string) {
     });
 
     const data = await response.json();
-    console.log("   ✅ Status Response:", JSON.stringify(data, null, 2));
+    logger.log("   ✅ Status Response:", JSON.stringify(data, null, 2));
 
     return data;
 
   } catch (error: any) {
-    console.error("   ❌ Status Check Error:", error.message);
+    logger.error("   ❌ Status Check Error:", error.message);
     return { success: false, code: "FAILED", message: error.message };
   }
 }
@@ -145,7 +146,7 @@ async function getOAuthToken() {
     params.append('client_secret', CLIENT_SECRET || "");
     params.append('client_version', (CLIENT_VERSION || 1).toString());
 
-    console.log(`      Getting Token from: ${url}`);
+    logger.log(`      Getting Token from: ${url}`);
 
     const response = await fetch(url, {
       method: "POST",
@@ -162,11 +163,11 @@ async function getOAuthToken() {
       // console.log("      ✅ Token Generated");
       return data.access_token;
     } else {
-      console.error("      ❌ Token Generation Failed:", JSON.stringify(data));
+      logger.error("      ❌ Token Generation Failed:", JSON.stringify(data));
       return null;
     }
   } catch (error: any) {
-    console.error("      ❌ Token Error:", error.message);
+    logger.error("      ❌ Token Error:", error.message);
     return null;
   }
 }
