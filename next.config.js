@@ -27,38 +27,39 @@ const nextConfig = {
     },
 
     // Webpack optimizations
-    webpack: (config, { isServer }) => {
-        if (!isServer) {
-            // Reduce client bundle size
-            config.optimization = {
-                ...config.optimization,
-                splitChunks: {
-                    chunks: 'all',
-                    cacheGroups: {
-                        default: false,
-                        vendors: false,
-                        // Vendor chunk for node_modules
-                        vendor: {
-                            name: 'vendor',
-                            chunks: 'all',
-                            test: /node_modules/,
-                            priority: 20,
-                        },
-                        // Common chunk for shared code
-                        common: {
-                            name: 'common',
-                            minChunks: 2,
-                            chunks: 'all',
-                            priority: 10,
-                            reuseExistingChunk: true,
-                            enforce: true,
-                        },
-                    },
-                },
-            };
-        }
-        return config;
-    },
+    // Webpack optimizations
+    // webpack: (config, { isServer }) => {
+    //     if (!isServer) {
+    //         // Reduce client bundle size
+    //         config.optimization = {
+    //             ...config.optimization,
+    //             splitChunks: {
+    //                 chunks: 'all',
+    //                 cacheGroups: {
+    //                     default: false,
+    //                     vendors: false,
+    //                     // Vendor chunk for node_modules
+    //                     vendor: {
+    //                         name: 'vendor',
+    //                         chunks: 'all',
+    //                         test: /node_modules/,
+    //                         priority: 20,
+    //                     },
+    //                     // Common chunk for shared code
+    //                     common: {
+    //                         name: 'common',
+    //                         minChunks: 2,
+    //                         chunks: 'all',
+    //                         priority: 10,
+    //                         reuseExistingChunk: true,
+    //                         enforce: true,
+    //                     },
+    //                 },
+    //             },
+    //         };
+    //     }
+    //     return config;
+    // },
 
     // Headers for caching and security
     async headers() {
