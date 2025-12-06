@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { CommunityChannel } from "@/types/community";
 
 const supabase = createClient();
 
@@ -9,12 +10,7 @@ export interface AdminCourseWithChannels {
     thumbnail_url: string | null;
     category: string | null;
     community_enabled: boolean;
-    channels: Array<{
-        id: string;
-        name: string;
-        type: string;
-        description: string | null;
-    }>;
+    channels: CommunityChannel[];
 }
 
 export const useAdminCoursesWithChannels = (userId: string | undefined) => {
@@ -32,8 +28,7 @@ export const useAdminCoursesWithChannels = (userId: string | undefined) => {
                     category,
                     community_enabled
                 `)
-                .eq("creator_id", userId)
-                .eq("community_enabled", true);
+                .eq("creator_id", userId);
 
             if (error) throw error;
 
@@ -42,9 +37,8 @@ export const useAdminCoursesWithChannels = (userId: string | undefined) => {
                 (data || []).map(async (course) => {
                     const { data: channels } = await supabase
                         .from("community_channels")
-                        .select("id, name, type, description")
+                        .select("*")
                         .eq("course_id", course.id)
-                        .eq("is_active", true)
                         .order("created_at", { ascending: true });
 
                     return {

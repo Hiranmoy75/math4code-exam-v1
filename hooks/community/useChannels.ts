@@ -4,8 +4,8 @@ import { CommunityChannel } from "@/types/community";
 
 const supabase = createClient();
 
-export const useCommunityChannels = (courseId: string) => {
-    return useQuery({
+export const useChannels = (courseId: string) => {
+    return useQuery<CommunityChannel[]>({
         queryKey: ["community", "channels", courseId],
         queryFn: async () => {
             const { data, error } = await supabase

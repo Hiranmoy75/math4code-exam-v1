@@ -39,6 +39,7 @@ export default async function AdminLayout({
     { icon: "book", label: "Test Series", href: "/admin/test-series" },
     { icon: "payment", label: "Payments", href: "/admin/payments" },
     { icon: "user", label: "Students", href: "/admin/students" },
+    { icon: "messagesquare", label: "Community", href: "#", onClick: "openCommunity" },
     { icon: "settings", label: "Settings", href: "/admin/settings" },
   ];
 

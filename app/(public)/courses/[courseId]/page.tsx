@@ -196,11 +196,11 @@ export default async function CourseLandingPage({
                                         <div className="space-y-2">
                                             <div className="flex items-baseline gap-2">
                                                 <span className="text-3xl font-bold text-primary">
-                                                    {course.price === 0 ? "Free" : `$${course.price}`}
+                                                    {course.price === 0 ? "Free" : `₹ ${course.price}`}
                                                 </span>
                                                 {course.price > 0 && (
                                                     <span className="text-muted-foreground line-through text-sm">
-                                                        ${Math.round(course.price * 1.5)}
+                                                        ₹ {Math.round(course.price * 1.5)}
                                                     </span>
                                                 )}
                                             </div>

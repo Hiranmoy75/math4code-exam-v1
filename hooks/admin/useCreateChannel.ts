@@ -36,6 +36,7 @@ export const useCreateChannel = () => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["community", "channels"] });
+            queryClient.invalidateQueries({ queryKey: ["admin", "courses-with-channels"] });
             toast.success("Channel created successfully!");
         },
         onError: (error: any) => {

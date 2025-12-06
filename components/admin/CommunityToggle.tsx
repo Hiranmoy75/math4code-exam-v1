@@ -6,25 +6,34 @@ import { Label } from "@/components/ui/label";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { useToggleCommunity } from "@/hooks/admin/useToggleCommunity";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 interface CommunityToggleProps {
     courseId: string;
     initialEnabled: boolean;
     className?: string;
+    onToggle?: (enabled: boolean) => void;
 }
 
-export function CommunityToggle({ courseId, initialEnabled, className }: CommunityToggleProps) {
+export function CommunityToggle({ courseId, initialEnabled, className, onToggle }: CommunityToggleProps) {
     const [enabled, setEnabled] = useState(initialEnabled);
     const { mutate: toggleCommunity, isPending } = useToggleCommunity();
+    const router = useRouter(); // Need to import useRouter
 
     const handleToggle = (checked: boolean) => {
         setEnabled(checked);
+        onToggle?.(checked); // Optimistic update parent
+
         toggleCommunity(
             { courseId, enabled: checked },
             {
+                onSuccess: () => {
+                    router.refresh();
+                },
                 onError: () => {
                     // Revert on error
                     setEnabled(!checked);
+                    onToggle?.(!checked);
                 }
             }
         );

@@ -19,6 +19,7 @@ export const useToggleCommunity = () => {
         onSuccess: (_, { courseId, enabled }) => {
             queryClient.invalidateQueries({ queryKey: ["courses"] });
             queryClient.invalidateQueries({ queryKey: ["course", courseId] });
+            queryClient.invalidateQueries({ queryKey: ["admin", "courses-with-channels"] });
             toast.success(enabled ? "Community enabled!" : "Community disabled");
         },
         onError: (error: any) => {

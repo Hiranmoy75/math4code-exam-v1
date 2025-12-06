@@ -81,7 +81,7 @@ export default function EnrollButton({
             disabled={isLoading}
         >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {price > 0 ? `Enroll Now - $${price}` : "Enroll for Free"}
+            {price > 0 ? `Enroll Now - ₹ ${price}` : "Enroll for Free"}
         </Button>
     );
 }

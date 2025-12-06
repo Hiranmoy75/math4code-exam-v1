@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminClientLayout from "../admin/AdminClientLayout";
+import { CommunityModalProvider } from "@/context/CommunityModalContext";
+import { CommunityModal } from "@/components/community/CommunityModal";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -50,7 +52,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     { icon: "home", label: "Dashboard", href: "/student/dashboard" },
     { icon: "bookopen", label: "My Courses", href: "/student/dashboard?tab=my-courses" },
     { icon: "layers", label: "All Courses", href: "/student/dashboard?tab=all-courses" },
-    { icon: "messagesquare", label: "Community", href: "/student/community" },
+    { icon: "messagesquare", label: "Community", href: "#", onClick: "openCommunity" },
     { icon: "trendingup", label: "My Series", href: "/student/my-series" },
     { icon: "award", label: "Result", href: "/student/results" },
     { icon: "gift", label: "Rewards", href: "/student/rewards" },
@@ -67,8 +69,11 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   }
 
   return (
-    <AdminClientLayout profile={profile} links={links}>
-      {children}
-    </AdminClientLayout>
+    <CommunityModalProvider>
+      <AdminClientLayout profile={profile} links={links}>
+        {children}
+      </AdminClientLayout>
+      <CommunityModal />
+    </CommunityModalProvider>
   );
 }

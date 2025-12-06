@@ -45,6 +45,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useDeleteCourse } from "@/hooks/admin/useAdminCourses";
 import { CommunityToggle } from "@/components/admin/CommunityToggle";
+import { useCommunityModal } from "@/context/CommunityModalContext";
 
 interface Course {
     id: string;
@@ -95,6 +96,12 @@ export default function CoursesList({ initialCourses }: CoursesListProps) {
     const confirmDelete = (course: Course) => {
         setCourseToDelete(course);
         setDeleteDialogOpen(true);
+    };
+
+    const handleToggleCommunity = (courseId: string, enabled: boolean) => {
+        setCourses(prev => prev.map(c =>
+            c.id === courseId ? { ...c, community_enabled: enabled } : c
+        ));
     };
 
     const filteredCourses = courses.filter(course =>
@@ -174,6 +181,7 @@ export default function CoursesList({ initialCourses }: CoursesListProps) {
                                 course={course}
                                 index={index}
                                 onDelete={() => confirmDelete(course)}
+                                onToggle={(enabled) => handleToggleCommunity(course.id, enabled)}
                             />
                         ))}
                     </motion.div>
@@ -192,6 +200,7 @@ export default function CoursesList({ initialCourses }: CoursesListProps) {
                                     course={course}
                                     index={index}
                                     onDelete={() => confirmDelete(course)}
+                                    onToggle={(enabled) => handleToggleCommunity(course.id, enabled)}
                                 />
                             ))}
                         </div>
@@ -228,7 +237,8 @@ export default function CoursesList({ initialCourses }: CoursesListProps) {
     );
 }
 
-function CourseCard({ course, index, onDelete }: { course: Course; index: number; onDelete: () => void }) {
+function CourseCard({ course, index, onDelete, onToggle }: { course: Course; index: number; onDelete: () => void; onToggle: (enabled: boolean) => void }) {
+    const { openCommunity } = useCommunityModal();
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -300,6 +310,7 @@ function CourseCard({ course, index, onDelete }: { course: Course; index: number
                     <CommunityToggle
                         courseId={course.id}
                         initialEnabled={course.community_enabled || false}
+                        onToggle={onToggle}
                     />
 
                     {/* Action Buttons */}
@@ -309,11 +320,14 @@ function CourseCard({ course, index, onDelete }: { course: Course; index: number
                         </div>
                         <div className="flex items-center gap-2">
                             {course.community_enabled && (
-                                <Link href={`/admin/courses/${course.id}/community`}>
-                                    <Button variant="outline" size="sm" className="hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 border-slate-200 dark:border-slate-700">
-                                        <MessageSquare className="h-4 w-4 mr-2" /> Community
-                                    </Button>
-                                </Link>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400 border-slate-200 dark:border-slate-700"
+                                    onClick={() => openCommunity({ courseId: course.id, isAdmin: true })}
+                                >
+                                    <MessageSquare className="h-4 w-4 mr-2" /> Community
+                                </Button>
                             )}
                             <Link href={`/admin/courses/${course.id}/builder`}>
                                 <Button variant="outline" size="sm" className="hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 border-slate-200 dark:border-slate-700">
@@ -343,7 +357,8 @@ function CourseCard({ course, index, onDelete }: { course: Course; index: number
     );
 }
 
-function CourseRow({ course, index, onDelete }: { course: Course; index: number; onDelete: () => void }) {
+function CourseRow({ course, index, onDelete, onToggle }: { course: Course; index: number; onDelete: () => void; onToggle: (enabled: boolean) => void }) {
+    const { openCommunity } = useCommunityModal();
     return (
         <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -402,6 +417,16 @@ function CourseRow({ course, index, onDelete }: { course: Course; index: number;
                             Manage
                         </Button>
                     </Link>
+                    {course.community_enabled && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400"
+                            onClick={() => openCommunity({ courseId: course.id, isAdmin: true })}
+                        >
+                            <MessageSquare className="h-4 w-4 mr-2" /> Community
+                        </Button>
+                    )}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

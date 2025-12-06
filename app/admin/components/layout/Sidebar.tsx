@@ -18,16 +18,19 @@ import {
   Award,
   TrendingUp,
   CreditCard,
-  Gift
+  Gift,
+  MessageSquare
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useCommunityModal } from "@/context/CommunityModalContext";
 
 interface SidebarProps {
-  menuItems: { icon: keyof typeof iconMap; label: string; href: string }[];
+  menuItems: { icon: keyof typeof iconMap; label: string; href: string; onClick?: string }[];
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (v: boolean) => void;
+  profile?: any;
 }
 
 const iconMap = {
@@ -45,6 +48,7 @@ const iconMap = {
   award: Award,
   payment: CreditCard,
   gift: Gift,
+  messagesquare: MessageSquare,
 };
 
 
@@ -53,11 +57,13 @@ export default function Sidebar({
   menuItems,
   sidebarCollapsed,
   setSidebarCollapsed,
+  profile,
 }: SidebarProps) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [showControlMenu, setShowControlMenu] = useState(false);
   const [expandMode, setExpandMode] = useState<"expanded" | "collapsed" | "hover">("expanded");
+  const { openCommunity } = useCommunityModal();
 
   // Lock scroll when mobile drawer is open
   useEffect(() => {
@@ -70,6 +76,13 @@ export default function Sidebar({
   };
   const handleMouseLeave = () => {
     if (expandMode === "hover") setSidebarCollapsed(true);
+  };
+
+  const handleMenuItemClick = (item: typeof menuItems[0]) => {
+    if (item.onClick === "openCommunity") {
+      const isAdmin = profile?.role === 'admin' || profile?.role === 'creator';
+      openCommunity({ isAdmin });
+    }
   };
 
   return (
@@ -109,6 +122,46 @@ export default function Sidebar({
           {menuItems.map((it) => {
             const Icon = iconMap[it.icon as keyof typeof iconMap] || Grid;
             const isActive = pathname === it.href || pathname.startsWith(`${it.href}/`);
+            const hasOnClick = it.onClick === "openCommunity";
+
+            if (hasOnClick) {
+              return (
+                <button
+                  key={it.label}
+                  onClick={() => handleMenuItemClick(it)}
+                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden
+                  ${isActive
+                      ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
+                    }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-600 rounded-r-full"
+                    />
+                  )}
+                  <Icon className={`w-5 h-5 min-w-[1.25rem] transition-colors ${isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"}`} />
+
+                  {!sidebarCollapsed && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-sm font-medium truncate"
+                    >
+                      {it.label}
+                    </motion.span>
+                  )}
+
+                  {/* Tooltip for collapsed state */}
+                  {sidebarCollapsed && (
+                    <div className="absolute left-full ml-4 px-2 py-1 bg-slate-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                      {it.label}
+                    </div>
+                  )}
+                </button>
+              );
+            }
 
             return (
               <Link
@@ -277,6 +330,32 @@ export default function Sidebar({
                 {menuItems.map((it) => {
                   const Icon = iconMap[it.icon as keyof typeof iconMap] || Grid;
                   const isActive = pathname === it.href || pathname.startsWith(`${it.href}/`);
+                  const hasOnClick = it.onClick === "openCommunity";
+
+                  if (hasOnClick) {
+                    return (
+                      <button
+                        key={it.label}
+                        onClick={() => {
+                          handleMenuItemClick(it);
+                          setIsMobileOpen(false);
+                        }}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
+                        ${isActive
+                            ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-medium"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                          }`}
+                      >
+                        <Icon className={`w-5 h-5 ${isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`} />
+                        <span className="text-sm">
+                          {it.label}
+                        </span>
+                        {isActive && (
+                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400" />
+                        )}
+                      </button>
+                    );
+                  }
 
                   return (
                     <Link

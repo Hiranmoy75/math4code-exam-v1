@@ -6,7 +6,8 @@ import "./globals.css"
 import { ReactQueryProviders } from "@/lib/provider/Provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { MathJaxContext } from "better-react-mathjax"
-import { Toaster } from "sonner"
+import { Toaster as SonnerToaster } from "sonner"
+import { Toaster } from "@/components/ui/toaster"
 import AIMentor from "@/components/landing/AIMentor"
 import { RewardInitializerWrapper } from "@/components/RewardInitializerWrapper"
 
@@ -117,7 +118,8 @@ export default function RootLayout({
               <AIMentor />
               <RewardInitializerWrapper />
             </MathJaxContext>
-            <Toaster richColors position="top-center" />
+            <SonnerToaster richColors position="top-center" />
+            <Toaster />
           </ThemeProvider>
         </ReactQueryProviders>
         <Analytics />

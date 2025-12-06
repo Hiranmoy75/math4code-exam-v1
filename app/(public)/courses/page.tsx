@@ -168,7 +168,7 @@ export default async function MarketplacePage({
                                             {/* Price & Action */}
                                             <div className="flex items-center justify-between mt-auto">
                                                 <div className="text-lg font-bold text-slate-900">
-                                                    {course.price > 0 ? `$${course.price}` : "Free"}
+                                                    {course.price > 0 ? `₹ ${course.price}` : "Free"}
                                                 </div>
                                                 <span className="text-sm font-medium text-indigo-600 flex items-center gap-1 group-hover:gap-2 transition-all">
                                                     View Details <ChevronRight className="w-4 h-4" />

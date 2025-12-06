@@ -6,6 +6,8 @@ import { redirect } from "next/navigation";
 import Sidebar from "./components/layout/Sidebar";
 import Header from "./components/layout/Header";
 import MobileNav from "./components/layout/MobileNav";
+import { CommunityModalProvider } from "@/context/CommunityModalContext";
+import { CommunityModal } from "@/components/community/CommunityModal";
 
 export default function AdminClientLayout({
   profile,
@@ -68,10 +70,9 @@ export default function AdminClientLayout({
   };
 
   return (
-    <>
-
+    <CommunityModalProvider>
       <div className="min-h-screen bg-gradient-to-br from-white via-sky-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-black transition-colors duration-700">
-        <Sidebar menuItems={links} sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} />
+        <Sidebar menuItems={links} sidebarCollapsed={sidebarCollapsed} setSidebarCollapsed={setSidebarCollapsed} profile={profile} />
         {/* <Sidebar menuItems={links} /> */}
         <Header theme={theme} toggleTheme={toggleTheme} sidebarCollapsed={sidebarCollapsed} profile={profile} setSidebarCollapsed={setSidebarCollapsed} />
 
@@ -83,7 +84,7 @@ export default function AdminClientLayout({
 
         <MobileNav theme={theme} toggleTheme={toggleTheme} />
       </div>
-
-    </>
+      <CommunityModal />
+    </CommunityModalProvider>
   );
 }

@@ -9,8 +9,6 @@ export const useChannelMessages = (channelId: string) => {
   const query = useInfiniteQuery({
     queryKey: ["community", "messages", channelId],
     queryFn: async ({ pageParam = 0 }) => {
-      console.log('📥 Fetching messages for channel:', channelId, 'page:', pageParam);
-
       const pageSize = 50;
       const start = pageParam * pageSize;
       const end = start + pageSize - 1;
@@ -19,7 +17,7 @@ export const useChannelMessages = (channelId: string) => {
         .from("community_messages")
         .select(`
           *,
-          profiles!user_id (
+          profiles (
             full_name,
             avatar_url,
             role
@@ -27,6 +25,10 @@ export const useChannelMessages = (channelId: string) => {
           community_reactions!message_id (
             id,
             emoji,
+            user_id
+          ),
+          community_bookmarks!message_id (
+            id,
             user_id
           )
         `)
@@ -39,7 +41,6 @@ export const useChannelMessages = (channelId: string) => {
         throw error;
       }
 
-      console.log(`✅ Fetched ${data?.length || 0} messages`);
       return data as CommunityMessage[];
     },
     initialPageParam: 0,
@@ -74,7 +75,7 @@ export const useChannelMessages = (channelId: string) => {
             .from("community_messages")
             .select(`
                             *,
-                            profiles!user_id (
+                            profiles (
                                 full_name,
                                 avatar_url,
                                 role
@@ -117,12 +118,9 @@ export const useChannelMessages = (channelId: string) => {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
-      });
+      .subscribe((status) => { });
 
     return () => {
-      console.log('🔌 Unsubscribing from channel:', channelId);
       supabase.removeChannel(channel);
     };
   }, [channelId, queryClient]);

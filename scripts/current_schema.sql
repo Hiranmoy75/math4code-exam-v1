@@ -516,3 +516,60 @@ EXECUTE FUNCTION notify_enrolled_users_new_lesson();
 BEGIN;
   ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 COMMIT;
+
+-- ============================================================================
+-- COMMUNITY SYSTEM SCHEMA
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.community_channels (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    course_id uuid NOT NULL,
+    name text NOT NULL,
+    type text NOT NULL CHECK (type IN ('announcement', 'discussion', 'qa')),
+    description text,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT community_channels_pkey PRIMARY KEY (id),
+    CONSTRAINT community_channels_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.community_messages (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    channel_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    content text NOT NULL,
+    attachments jsonb DEFAULT '[]'::jsonb,
+    is_pinned boolean DEFAULT false,
+    is_announcement boolean DEFAULT false,
+    reply_count integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT community_messages_pkey PRIMARY KEY (id),
+    CONSTRAINT community_messages_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.community_channels(id) ON DELETE CASCADE,
+    CONSTRAINT community_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS public.community_reactions (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    message_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    emoji text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT community_reactions_pkey PRIMARY KEY (id),
+    CONSTRAINT community_reactions_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.community_messages(id) ON DELETE CASCADE,
+    CONSTRAINT community_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+    CONSTRAINT community_reactions_unique UNIQUE (message_id, user_id, emoji)
+);
+
+CREATE TABLE IF NOT EXISTS public.community_bookmarks (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    message_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT community_bookmarks_pkey PRIMARY KEY (id),
+    CONSTRAINT community_bookmarks_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.community_messages(id) ON DELETE CASCADE,
+    CONSTRAINT community_bookmarks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+    CONSTRAINT community_bookmarks_unique UNIQUE (message_id, user_id)
+);
+

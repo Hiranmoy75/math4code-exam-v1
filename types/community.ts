@@ -28,7 +28,14 @@ export interface CommunityMessage {
         avatar_url: string | null;
         role: string;
     };
+    author?: {
+        full_name: string | null;
+        avatar_url: string | null;
+        role: string;
+    };
     reactions?: CommunityReaction[];
+    community_reactions?: CommunityReaction[];
+    community_bookmarks?: CommunityBookmark[];
     reply_count?: number;
 }
 

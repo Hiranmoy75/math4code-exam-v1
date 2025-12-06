@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, MessageSquare, Plus, Trash, Edit } from "lucide-react";
+import { Plus, MessageSquare, Edit, Trash, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,33 +10,43 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { AddChannelDialog } from "@/components/admin/AddChannelDialog";
+import { EditChannelDialog } from "@/components/admin/EditChannelDialog";
+import { CommunityChannel } from "@/types/community";
+import { useDeleteChannel } from "@/hooks/admin/useAdminChannels";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-interface Channel {
-    id: string;
-    name: string;
-    type: string;
-    description: string | null;
-    is_active: boolean;
-}
-
-interface CommunitySettingsClientProps {
+interface CommunitySettingsViewProps {
     courseId: string;
     courseTitle: string;
     communityEnabled: boolean;
-    initialChannels: Channel[];
+    channels: CommunityChannel[];
+    onBack: () => void;
 }
 
-export default function CommunitySettingsClient({
+export function CommunitySettingsView({
     courseId,
     courseTitle,
     communityEnabled: initialEnabled,
-    initialChannels
-}: CommunitySettingsClientProps) {
-    const router = useRouter();
+    channels,
+    onBack
+}: CommunitySettingsViewProps) {
     const [enabled, setEnabled] = useState(initialEnabled);
-    const [channels] = useState(initialChannels);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-    const { mutate: toggleCommunity, isPending } = useToggleCommunity();
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [selectedChannel, setSelectedChannel] = useState<CommunityChannel | null>(null);
+
+    const { mutate: toggleCommunity, isPending: isTogglePending } = useToggleCommunity();
+    const { mutate: deleteChannel, isPending: isDeletePending } = useDeleteChannel();
 
     const handleToggle = (checked: boolean) => {
         toggleCommunity(
@@ -56,6 +65,26 @@ export default function CommunitySettingsClient({
                 }
             }
         );
+    };
+
+    const confirmDelete = (channel: CommunityChannel) => {
+        setSelectedChannel(channel);
+        setIsDeleteDialogOpen(true);
+    };
+
+    const handleDelete = () => {
+        if (!selectedChannel) return;
+        deleteChannel({ channelId: selectedChannel.id, courseId }, {
+            onSuccess: () => {
+                setIsDeleteDialogOpen(false);
+                setSelectedChannel(null);
+            }
+        });
+    };
+
+    const openEdit = (channel: CommunityChannel) => {
+        setSelectedChannel(channel);
+        setIsEditDialogOpen(true);
     };
 
     const getChannelIcon = (type: string) => {
@@ -81,24 +110,12 @@ export default function CommunitySettingsClient({
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-6">
-            <div className="max-w-4xl mx-auto space-y-6">
-                {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push(`/admin/courses/${courseId}/community`)}
-                    >
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back to Community
-                    </Button>
-                </div>
-
+        <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900/50">
+            <div className="max-w-3xl mx-auto p-6 space-y-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                         Community Settings
-                    </h1>
+                    </h2>
                     <p className="text-slate-600 dark:text-slate-400 mt-1">
                         Manage community settings for {courseTitle}
                     </p>
@@ -129,7 +146,7 @@ export default function CommunitySettingsClient({
                                 id="community-toggle"
                                 checked={enabled}
                                 onCheckedChange={handleToggle}
-                                disabled={isPending}
+                                disabled={isTogglePending}
                             />
                         </div>
                     </CardContent>
@@ -176,11 +193,20 @@ export default function CommunitySettingsClient({
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <Button variant="ghost" size="sm" disabled>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => openEdit(channel)}
+                                            >
                                                 <Edit className="h-4 w-4" />
                                             </Button>
-                                            <Button variant="ghost" size="sm" disabled>
-                                                <Trash className="h-4 w-4 text-red-600" />
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                onClick={() => confirmDelete(channel)}
+                                            >
+                                                <Trash className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </div>
@@ -212,12 +238,50 @@ export default function CommunitySettingsClient({
                     </CardContent>
                 </Card>
 
-                {/* Add Channel Dialog */}
+                {/* Dialogs */}
                 <AddChannelDialog
                     open={isAddDialogOpen}
                     onOpenChange={setIsAddDialogOpen}
                     courseId={courseId}
                 />
+
+                <EditChannelDialog
+                    open={isEditDialogOpen}
+                    onOpenChange={setIsEditDialogOpen}
+                    channel={selectedChannel}
+                />
+
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Channel?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to delete <span className="font-bold">#{selectedChannel?.name}</span>?
+                                This action cannot be undone and all messages in this channel will be permanently deleted.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeletePending}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    handleDelete();
+                                }}
+                                className="bg-red-600 hover:bg-red-700"
+                                disabled={isDeletePending}
+                            >
+                                {isDeletePending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Deleting...
+                                    </>
+                                ) : (
+                                    "Delete"
+                                )}
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
         </div>
     );

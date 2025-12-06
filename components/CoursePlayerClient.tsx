@@ -40,6 +40,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { useLessonProgress, useMarkLessonComplete } from "@/hooks/student/useLessonProgress"
 import { ModeToggle } from "@/components/mode-toggle"
+import { useCommunityModal } from "@/context/CommunityModalContext"
 
 interface CoursePlayerClientProps {
     course: any
@@ -68,6 +69,7 @@ export function CoursePlayerClient({
     const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false)
     const [userId, setUserId] = useState<string | null>(null)
     const [progressPercentage, setProgressPercentage] = useState(0)
+    const { openCommunity } = useCommunityModal()
 
     // Get user ID
     useEffect(() => {
@@ -398,12 +400,15 @@ export function CoursePlayerClient({
                             </DropdownMenuContent>
                         </DropdownMenu>
 
-                        <Link href={`/learn/${courseId}/community`}>
-                            <Button size="sm" variant="ghost" className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground">
-                                <Users className="h-4 w-4" />
-                                Community
-                            </Button>
-                        </Link>
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground"
+                            onClick={openCommunity}
+                        >
+                            <Users className="h-4 w-4" />
+                            Community
+                        </Button>
 
                         <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 hidden sm:flex">
                             <Share2 className="h-4 w-4" />
