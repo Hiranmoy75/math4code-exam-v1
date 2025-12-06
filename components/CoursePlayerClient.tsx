@@ -404,7 +404,7 @@ export function CoursePlayerClient({
                             size="sm"
                             variant="ghost"
                             className="hidden sm:flex items-center gap-2 text-muted-foreground hover:text-foreground"
-                            onClick={openCommunity}
+                            onClick={() => openCommunity()}
                         >
                             <Users className="h-4 w-4" />
                             Community

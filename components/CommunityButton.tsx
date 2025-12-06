@@ -9,7 +9,7 @@ export function CommunityButton() {
 
     return (
         <Button
-            onClick={openCommunity}
+            onClick={() => openCommunity()}
             className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
         >
             <Users className="h-4 w-4" />
