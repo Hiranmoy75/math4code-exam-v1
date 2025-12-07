@@ -163,15 +163,24 @@ export interface Lesson {
   is_downloadable: boolean
   lesson_order: number
   exam_id?: string
+  // Live Class fields
+  is_live?: boolean
+  meeting_url?: string | null
+  meeting_platform?: string | null
+  meeting_date?: string | null
   // Bunny.net video hosting fields
-  video_provider?: "youtube" | "bunny" | "direct"
+  video_provider?: "youtube" | "bunny" | "direct" | "jitsi"
   video_type?: "vod" | "live"
   bunny_video_id?: string | null
+  bunny_library_id?: string | null
   bunny_guid?: string | null
   bunny_stream_id?: string | null
   video_status?: "processing" | "ready" | "live" | "ended" | "error"
   stream_key?: string | null
   rtmp_url?: string | null
+  // Jitsi fields
+  jitsi_meeting_id?: string | null
+  jitsi_meeting_url?: string | null
   created_at: string
   updated_at: string
 }

@@ -1132,7 +1132,7 @@ function LessonEditor({ lesson, course, onUpdate, onDelete }: { lesson: Lesson, 
                                             </div>
 
                                             <Button
-                                                onClick={() => window.open(lesson.meeting_url, '_blank', 'noopener,noreferrer')}
+                                                onClick={() => lesson.meeting_url && window.open(lesson.meeting_url, '_blank', 'noopener,noreferrer')}
                                                 className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700"
                                                 size="lg"
                                             >

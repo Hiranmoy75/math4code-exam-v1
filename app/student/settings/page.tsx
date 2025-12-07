@@ -6,7 +6,7 @@ import ChangePassword from '@/components/settings/ChangePassword';
 import ForgotPassword from '@/components/settings/ForgotPassword';
 import toast, { Toaster } from 'react-hot-toast';
 import { createClient } from "@/lib/supabase/client"
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ export default function StudentSettingsPage() {
 
   if (error || !profile) return <div className="p-6 text-red-600">Failed to load profile. Please login.</div>;
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
   };
