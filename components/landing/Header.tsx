@@ -124,9 +124,9 @@ export const Header = () => {
 
                     {/* Auth Buttons / Profile */}
                     <div className="hidden md:flex items-center gap-4">
-                        {user && (
+                        {/* {user && (
                             <RewardDisplay userId={user.id} />
-                        )}
+                        )} */}
                         {user ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

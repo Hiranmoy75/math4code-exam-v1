@@ -56,10 +56,18 @@ async function processRedirect(req: Request, transactionId: string) {
             user_id: userId,
             course_id: courseId,
             status: "active",
-            payment_id: payment?.id
+            payment_id: payment?.id,
+            enrolled_at: new Date().toISOString(),
+            progress: 0,
+            completed: false
           });
+          console.log("✅ Course enrollment created");
         } else {
-          await supabase.from("enrollments").update({ status: "active", payment_id: payment?.id }).eq("id", existingEnrollment.id);
+          await supabase.from("enrollments").update({
+            status: "active",
+            payment_id: payment?.id
+          }).eq("id", existingEnrollment.id);
+          console.log("✅ Course enrollment activated");
         }
       } else if (seriesId) {
         // Test Series Enrollment

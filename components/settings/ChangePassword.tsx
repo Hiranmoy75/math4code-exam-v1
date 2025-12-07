@@ -3,15 +3,18 @@
 import React, { useState } from 'react';
 import { createClient } from "@/lib/supabase/client"
 import toast from 'react-hot-toast';
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Loader2, Lock } from "lucide-react";
 
 export default function ChangePassword() {
-    const supabase = createClient()
+  const supabase = createClient()
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Note: Supabase client allows the logged-in user to update password via auth.updateUser
   const onChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPwd || newPwd !== confirmPwd) {
@@ -21,7 +24,6 @@ export default function ChangePassword() {
     setLoading(true);
 
     try {
-      // This updates the logged-in user's password
       const { error } = await supabase.auth.updateUser({ password: newPwd });
       if (error) throw error;
       toast.success('Password changed successfully. You may be asked to re-login.');
@@ -36,33 +38,50 @@ export default function ChangePassword() {
   };
 
   return (
-    <form onSubmit={onChange} className="space-y-3">
-      <div>
-        <label className="text-sm">New password</label>
-        <input
-          type="password"
-          value={newPwd}
-          onChange={(e) => setNewPwd(e.target.value)}
-          className="w-full mt-1 px-3 py-2 border rounded"
-          minLength={6}
-          required
-        />
+    <form onSubmit={onChange} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="new-password">New password</Label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="new-password"
+            type="password"
+            value={newPwd}
+            onChange={(e) => setNewPwd(e.target.value)}
+            className="pl-9"
+            placeholder="••••••••"
+            minLength={6}
+            required
+          />
+        </div>
       </div>
-      <div>
-        <label className="text-sm">Confirm new password</label>
-        <input
-          type="password"
-          value={confirmPwd}
-          onChange={(e) => setConfirmPwd(e.target.value)}
-          className="w-full mt-1 px-3 py-2 border rounded"
-          required
-        />
+      <div className="space-y-2">
+        <Label htmlFor="confirm-password">Confirm new password</Label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="confirm-password"
+            type="password"
+            value={confirmPwd}
+            onChange={(e) => setConfirmPwd(e.target.value)}
+            className="pl-9"
+            placeholder="••••••••"
+            required
+          />
+        </div>
       </div>
 
-      <div>
-        <button disabled={loading} className="px-4 py-2 bg-indigo-600 text-white rounded">
-          {loading ? 'Updating...' : 'Change password'}
-        </button>
+      <div className="pt-2">
+        <Button disabled={loading} type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white">
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            'Change Password'
+          )}
+        </Button>
       </div>
     </form>
   );

@@ -12,26 +12,18 @@ export function RewardInitializer({ userId }: { userId: string }) {
         if (!userId) return;
 
         const initRewards = async () => {
-            // 1. Check Streak
-            const streakRes = await checkStreak(userId);
-            if (streakRes.message) {
-                toast.success(streakRes.message, {
-                    icon: "🔥",
-                    duration: 4000
-                });
-            }
-
-            // 2. Award Daily Login Coins
+            // New Flow: Trigger 'login' action. 
+            // The DB Trigger handles Streak Updates + Coin Awards automatically.
             const loginRes = await awardCoins(userId, 'login');
+
             if (loginRes.success && loginRes.message) {
                 toast.success(loginRes.message, {
-                    icon: "🪙",
+                    icon: "🔥",
                     duration: 3000
                 });
+                // Dispatch event to refresh UI counters
+                window.dispatchEvent(new Event("rewards-updated"));
             }
-
-            // Dispatch event to update UI
-            window.dispatchEvent(new Event("rewards-updated"));
         };
 
         // Run once on mount (session start)

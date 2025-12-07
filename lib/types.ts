@@ -163,9 +163,19 @@ export interface Lesson {
   is_downloadable: boolean
   lesson_order: number
   exam_id?: string
+  // Bunny.net video hosting fields
+  video_provider?: "youtube" | "bunny" | "direct"
+  video_type?: "vod" | "live"
+  bunny_video_id?: string | null
+  bunny_guid?: string | null
+  bunny_stream_id?: string | null
+  video_status?: "processing" | "ready" | "live" | "ended" | "error"
+  stream_key?: string | null
+  rtmp_url?: string | null
   created_at: string
   updated_at: string
 }
+
 
 export interface Enrollment {
   id: string

@@ -192,7 +192,6 @@ export default async function MarketplacePage({
                     </div>
                 </div>
             </main>
-            <Footer />
         </div>
     );
 }

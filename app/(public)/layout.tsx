@@ -1,5 +1,6 @@
 import { Header } from "@/components/landing/Header";
 import AIMentor from "@/components/landing/AIMentor";
+import { Footer } from "@/components/landing/Footer";
 
 
 export default function PublicLayout({
@@ -13,6 +14,7 @@ export default function PublicLayout({
             <main>
                 {children}
                 <AIMentor />
+                <Footer />
             </main>
         </div>
     );

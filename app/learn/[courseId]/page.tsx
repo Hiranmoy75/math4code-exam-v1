@@ -6,6 +6,8 @@ import { EmbeddedExam } from "@/components/EmbeddedExam";
 import { CoursePlayerClient } from "@/components/CoursePlayerClient";
 import { LessonTracker } from "@/components/LessonTracker";
 import VideoPlayer from "@/components/VideoPlayer";
+import { BunnyPlayer } from "@/components/BunnyPlayer";
+import { LiveClassCard } from "@/components/LiveClassCard";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -233,16 +235,44 @@ export default async function CoursePlayerPage({
                                     {/* Video Content */}
                                     {currentLesson.content_type === "video" && (
                                         <>
-                                            <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg relative border border-border ring-1 ring-border/50">
-                                                {currentLesson.content_url ? (
-                                                    <VideoPlayer url={currentLesson.content_url} />
-                                                ) : (
-                                                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                                        <PlayCircle className="h-20 w-20 opacity-20 mb-4" />
-                                                        <span className="text-lg font-medium">Video Content Placeholder</span>
-                                                    </div>
-                                                )}
-                                            </div>
+                                            {/* Live Class - No aspect ratio constraint */}
+                                            {currentLesson.is_live && currentLesson.meeting_url ? (
+                                                <div className="p-4 sm:p-6 md:p-8">
+                                                    <LiveClassCard
+                                                        lessonTitle={currentLesson.title}
+                                                        meetingUrl={currentLesson.meeting_url}
+                                                        meetingDate={currentLesson.meeting_date}
+                                                        meetingPlatform={currentLesson.meeting_platform}
+                                                        instructorName={course.instructor_name}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                /* Regular Video - Keep aspect ratio */
+                                                <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-lg relative border border-border ring-1 ring-border/50">
+                                                    {currentLesson.content_url || currentLesson.bunny_video_id || currentLesson.bunny_stream_id ? (
+                                                        <>
+                                                            {currentLesson.video_provider === 'bunny' && (currentLesson.bunny_video_id || currentLesson.bunny_stream_id) ? (
+                                                                /* Render Bunny Player for Bunny videos */
+                                                                <BunnyPlayer
+                                                                    videoId={currentLesson.bunny_video_id || currentLesson.bunny_stream_id || ''}
+                                                                    libraryId={currentLesson.bunny_library_id || ''}
+                                                                    videoType={currentLesson.video_type || 'vod'}
+                                                                    videoStatus={currentLesson.video_status}
+                                                                    className="w-full h-full"
+                                                                />
+                                                            ) : (
+                                                                /* Render YouTube/Direct Video Player */
+                                                                <VideoPlayer url={currentLesson.content_url} />
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                            <PlayCircle className="h-20 w-20 opacity-20 mb-4" />
+                                                            <span className="text-lg font-medium">Video Content Placeholder</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </>
                                     )}
 

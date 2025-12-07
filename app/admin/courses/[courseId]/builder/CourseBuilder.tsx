@@ -28,14 +28,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Plus, Trash, Video, FileText, File, Edit, HelpCircle,
-    ChevronDown, ChevronRight, Sparkles, X, Save, Eye
+    ChevronDown, ChevronRight, Sparkles, X, Save, Eye, Copy, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
+import { BunnyUploader } from "./BunnyUploader";
+import { JitsiLiveCreator } from "./JitsiLiveCreator";
+import { BunnyPlayer } from "@/components/BunnyPlayer";
 
 // Code split RichTextEditor - it's a large component
 const RichTextEditor = dynamic(
@@ -172,12 +175,39 @@ export default function CourseBuilder({ course, initialModules }: CourseBuilderP
     };
 
     const handleDeleteLesson = async (lessonId: string) => {
-        if (!confirm("Are you sure you want to delete this lesson?")) return;
+        // Find the lesson to delete
+        const lesson = modules.flatMap(m => m.lessons).find(l => l.id === lessonId);
+        if (!lesson) return;
 
         try {
+            // Delete Bunny video if it exists
+            if (lesson.video_provider === 'bunny' && lesson.bunny_video_id) {
+                try {
+                    console.log('🗑️ Deleting Bunny video:', lesson.bunny_video_id);
+                    const deleteResponse = await fetch('/api/bunny/delete', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            videoId: lesson.bunny_video_id
+                        })
+                    });
+
+                    if (deleteResponse.ok) {
+                        console.log('✅ Bunny video deleted successfully');
+                    } else {
+                        console.warn('⚠️ Failed to delete Bunny video, continuing with lesson deletion');
+                    }
+                } catch (bunnyError) {
+                    console.error('Error deleting Bunny video:', bunnyError);
+                    // Continue with lesson deletion even if Bunny deletion fails
+                }
+            }
+
+            // Delete lesson from database
             const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
             if (error) throw error;
 
+            // Update UI
             setModules(modules.map(m => ({
                 ...m,
                 lessons: m.lessons.filter(l => l.id !== lessonId)
@@ -186,7 +216,8 @@ export default function CourseBuilder({ course, initialModules }: CourseBuilderP
             if (selectedLesson?.id === lessonId) {
                 setSelectedLesson(null);
             }
-            toast.success("Lesson deleted");
+
+            toast.success("Lesson deleted successfully");
         } catch (error) {
             console.error(error);
             toast.error("Failed to delete lesson");
@@ -562,8 +593,7 @@ export default function CourseBuilder({ course, initialModules }: CourseBuilderP
             </AlertDialog>
 
             {/* Edit Module Dialog */}
-            < Dialog open={!!editingModule
-            } onOpenChange={(open) => !open && setEditingModule(null)}>
+            <Dialog open={!!editingModule} onOpenChange={(open) => !open && setEditingModule(null)}>
                 <DialogContent className="dark:bg-[#161b22] dark:border-slate-800">
                     <DialogHeader>
                         <DialogTitle className="dark:text-white">Edit Chapter Name</DialogTitle>
@@ -596,6 +626,7 @@ export default function CourseBuilder({ course, initialModules }: CourseBuilderP
                         <LessonEditor
                             key={selectedLesson.id}
                             lesson={selectedLesson}
+                            course={course}
                             onUpdate={handleLessonUpdated}
                             onDelete={handleDeleteLesson}
                         />
@@ -662,10 +693,15 @@ function AddContentModal({ moduleId, lessonCount, onLessonAdded }: { moduleId: s
     const [availableExams, setAvailableExams] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingExams, setIsLoadingExams] = useState(false);
+    // Live class fields
+    const [meetingUrl, setMeetingUrl] = useState("");
+    const [meetingDate, setMeetingDate] = useState("");
+    const [meetingPlatform, setMeetingPlatform] = useState("google_meet");
     const supabase = createClient();
 
     const contentOptions = [
         { id: "video", label: "Video", icon: Video, description: "Add YouTube or Vimeo video" },
+        { id: "live", label: "Live Class", icon: Video, description: "Schedule live class (Google Meet/Zoom)" },
         { id: "text", label: "Text", icon: FileText, description: "Add text content" },
         { id: "pdf", label: "PDF", icon: File, description: "Upload PDF file" },
         { id: "quiz", label: "Quiz/Exam", icon: HelpCircle, description: "Add quiz or exam" },
@@ -706,13 +742,24 @@ function AddContentModal({ moduleId, lessonCount, onLessonAdded }: { moduleId: s
             return;
         }
 
+        // Validation for live class
+        if (selectedType === "live") {
+            if (!meetingUrl) {
+                toast.error("Please enter a meeting URL");
+                return;
+            }
+            if (!meetingDate) {
+                toast.error("Please select a date and time");
+                return;
+            }
+        }
+
         setIsLoading(true);
         try {
             let contentUrl = "";
 
-            if (selectedType === "video") {
-                contentUrl = convertToEmbedUrl(videoUrl);
-            } else if (selectedType === "pdf" && pdfFile) {
+            // For video lessons, leave content_url empty - will be added via upload
+            if (selectedType === "pdf" && pdfFile) {
                 const fileName = `course-content/${Date.now()}-${pdfFile.name.replace(/\s+/g, "_")}`;
                 const { error: uploadError } = await supabase.storage
                     .from("uploads")
@@ -727,11 +774,19 @@ function AddContentModal({ moduleId, lessonCount, onLessonAdded }: { moduleId: s
             const lessonData: any = {
                 module_id: moduleId,
                 title,
-                content_type: selectedType,
+                content_type: selectedType === "live" ? "video" : selectedType,
                 content_url: contentUrl,
                 lesson_order: lessonCount + 1,
                 is_free_preview: false
             };
+
+            // Add live class specific fields
+            if (selectedType === "live") {
+                lessonData.is_live = true;
+                lessonData.meeting_url = meetingUrl;
+                lessonData.meeting_date = new Date(meetingDate).toISOString();
+                lessonData.meeting_platform = meetingPlatform;
+            }
 
             // Add exam_id for quiz type
             if (selectedType === "quiz") {
@@ -746,14 +801,17 @@ function AddContentModal({ moduleId, lessonCount, onLessonAdded }: { moduleId: s
 
             if (error) throw error;
 
-            onLessonAdded(data as Lesson);
+            // Close dialog and reset form immediately for better UX
             setIsOpen(false);
             resetForm();
+            setIsLoading(false);
+
+            // Update state and show success
+            onLessonAdded(data as Lesson);
             toast.success("Lesson added successfully");
         } catch (error: any) {
             console.error(error);
             toast.error(error.message || "Failed to add lesson");
-        } finally {
             setIsLoading(false);
         }
     };
@@ -766,6 +824,10 @@ function AddContentModal({ moduleId, lessonCount, onLessonAdded }: { moduleId: s
         setPdfFile(null);
         setSelectedExamId("");
         setAvailableExams([]);
+        // Reset live class fields
+        setMeetingUrl("");
+        setMeetingDate("");
+        setMeetingPlatform("google_meet");
     };
 
     return (
@@ -813,18 +875,50 @@ function AddContentModal({ moduleId, lessonCount, onLessonAdded }: { moduleId: s
                             />
                         </div>
 
-                        {selectedType === "video" && (
-                            <div className="space-y-2">
-                                <Label className="dark:text-slate-300">Video URL (YouTube/Vimeo)</Label>
-                                <Input
-                                    value={videoUrl}
-                                    onChange={(e) => setVideoUrl(e.target.value)}
-                                    placeholder="https://www.youtube.com/watch?v=..."
-                                    required
-                                    className="dark:bg-slate-900 dark:border-slate-700 dark:text-white"
-                                />
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Paste a YouTube or Vimeo URL</p>
-                            </div>
+                        {selectedType === "live" && (
+                            <>
+                                <div className="space-y-2">
+                                    <Label className="dark:text-slate-300">Meeting URL</Label>
+                                    <Input
+                                        value={meetingUrl}
+                                        onChange={(e) => setMeetingUrl(e.target.value)}
+                                        placeholder="https://meet.google.com/abc-defg-hij"
+                                        required
+                                        className="dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                                    />
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        Paste your Google Meet, Zoom, or Teams link here
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="dark:text-slate-300">Class Date & Time</Label>
+                                    <Input
+                                        type="datetime-local"
+                                        value={meetingDate}
+                                        onChange={(e) => setMeetingDate(e.target.value)}
+                                        required
+                                        className="dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                                    />
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                        When will the live class start?
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="dark:text-slate-300">Platform</Label>
+                                    <select
+                                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                                        value={meetingPlatform}
+                                        onChange={(e) => setMeetingPlatform(e.target.value)}
+                                    >
+                                        <option value="google_meet">Google Meet</option>
+                                        <option value="zoom">Zoom</option>
+                                        <option value="teams">Microsoft Teams</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </>
                         )}
 
                         {selectedType === "pdf" && (
@@ -880,7 +974,7 @@ function AddContentModal({ moduleId, lessonCount, onLessonAdded }: { moduleId: s
     );
 }
 
-function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate: (lesson: Lesson) => void, onDelete: (id: string) => void }) {
+function LessonEditor({ lesson, course, onUpdate, onDelete }: { lesson: Lesson, course: Course, onUpdate: (lesson: Lesson) => void, onDelete: (id: string) => void }) {
     const [title, setTitle] = useState(lesson.title);
     const [contentUrl, setContentUrl] = useState(lesson.content_url || "");
     const [contentText, setContentText] = useState(lesson.content_text || "");
@@ -969,7 +1063,15 @@ function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate
                     <AlertDialogHeader>
                         <AlertDialogTitle className="dark:text-white">Delete Lesson</AlertDialogTitle>
                         <AlertDialogDescription className="dark:text-slate-400">
-                            Are you sure you want to delete "{title}"? This action cannot be undone.
+                            Are you sure you want to delete "{title}"?
+                            {lesson.video_provider === 'bunny' && lesson.bunny_video_id && (
+                                <span className="block mt-2 text-amber-600 dark:text-amber-500">
+                                    ⚠️ This will also delete the associated video from Bunny.net.
+                                </span>
+                            )}
+                            <span className="block mt-2">
+                                This action cannot be undone.
+                            </span>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -991,33 +1093,225 @@ function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate
                 <div className="max-w-4xl mx-auto space-y-6">
                     {lesson.content_type === "video" && (
                         <>
-                            <div className="space-y-2">
-                                <Label className="dark:text-slate-300">Video URL</Label>
-                                <Input
-                                    value={contentUrl}
-                                    onChange={(e) => setContentUrl(e.target.value)}
-                                    placeholder="https://www.youtube.com/watch?v=..."
-                                    className="dark:bg-slate-900 dark:border-slate-700 dark:text-white"
-                                />
-                                <p className="text-xs text-slate-500 dark:text-slate-400">Paste a YouTube or Vimeo URL</p>
-                            </div>
+                            {/* Live Class - Show simple join button */}
+                            {lesson.is_live && lesson.meeting_url ? (
+                                <div className="space-y-4">
+                                    <div className="p-6 border-2 border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div>
+                                                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">Live Class Meeting</h3>
+                                                <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                    Scheduled for: {lesson.meeting_date ? new Date(lesson.meeting_date).toLocaleString() : 'Not scheduled'}
+                                                </p>
+                                            </div>
+                                            <div className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full">
+                                                {lesson.meeting_platform?.toUpperCase() || 'GOOGLE MEET'}
+                                            </div>
+                                        </div>
 
-                            {contentUrl && (
-                                <div className="space-y-2">
-                                    <Label className="dark:text-slate-300">Preview</Label>
-                                    <div className="aspect-video bg-black rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
-                                        {/* <iframe
-                                            src={convertToEmbedUrl(contentUrl)}
-                                            className="w-full h-full"
-                                            allowFullScreen
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                        /> */}
-                                        <VideoPlayer url={convertToEmbedUrl(contentUrl)} />
+                                        <div className="space-y-3">
+                                            <div>
+                                                <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Meeting URL</Label>
+                                                <div className="flex gap-2 mt-1">
+                                                    <Input
+                                                        value={lesson.meeting_url}
+                                                        readOnly
+                                                        className="bg-white dark:bg-slate-900 font-mono text-sm"
+                                                    />
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(lesson.meeting_url || '');
+                                                            toast.success('Meeting URL copied!');
+                                                        }}
+                                                    >
+                                                        <Copy className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <Button
+                                                onClick={() => window.open(lesson.meeting_url, '_blank', 'noopener,noreferrer')}
+                                                className="w-full h-12 text-base font-semibold bg-blue-600 hover:bg-blue-700"
+                                                size="lg"
+                                            >
+                                                <Video className="mr-2 h-5 w-5" />
+                                                Start Live Class
+                                            </Button>
+
+                                            <p className="text-xs text-center text-blue-600 dark:text-blue-400">
+                                                This will open the meeting in a new tab
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                                        <h4 className="font-medium mb-2 text-sm">📝 Instructions</h4>
+                                        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                            <li>• Click "Start Live Class" to join the meeting</li>
+                                            <li>• Students will see a countdown and join button</li>
+                                            <li>• The meeting link is: {lesson.meeting_platform || 'Google Meet'}</li>
+                                        </ul>
                                     </div>
                                 </div>
+                            ) : (
+                                /* Regular Video Lesson - Show 3 tabs */
+                                <Tabs defaultValue="youtube" className="w-full">
+                                    <TabsList className="grid w-full grid-cols-3">
+                                        <TabsTrigger value="youtube">YouTube</TabsTrigger>
+                                        <TabsTrigger value="upload">Upload Video</TabsTrigger>
+                                        <TabsTrigger value="live">Go Live</TabsTrigger>
+                                    </TabsList>
+
+                                    <TabsContent value="youtube" className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="dark:text-slate-300">Video URL</Label>
+                                            <Input
+                                                value={contentUrl}
+                                                onChange={(e) => setContentUrl(e.target.value)}
+                                                placeholder="https://www.youtube.com/watch?v=..."
+                                                className="dark:bg-slate-900 dark:border-slate-700 dark:text-white"
+                                            />
+                                            <p className="text-xs text-slate-500 dark:text-slate-400">Paste a YouTube or Vimeo URL</p>
+                                        </div>
+
+                                        {contentUrl && (
+                                            <div className="space-y-2">
+                                                <Label className="dark:text-slate-300">Preview</Label>
+                                                <div className="aspect-video bg-black rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+                                                    <VideoPlayer url={convertToEmbedUrl(contentUrl)} />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </TabsContent>
+
+                                    <TabsContent value="upload" className="space-y-4">
+                                        <BunnyUploader
+                                            lessonTitle={title}
+                                            courseId={course.id}
+                                            courseTitle={course.title}
+                                            onUploadComplete={async (videoData) => {
+                                                console.log('✅ Upload complete! Video data:', videoData);
+                                                console.log('📝 Lesson ID:', lesson.id);
+                                                try {
+                                                    console.log('💾 Updating database...');
+                                                    // Update lesson with Bunny video data
+                                                    const { data, error } = await supabase
+                                                        .from('lessons')
+                                                        .update({
+                                                            video_provider: 'bunny',
+                                                            video_type: 'vod',
+                                                            bunny_video_id: videoData.videoId,
+                                                            bunny_guid: videoData.guid,
+                                                            bunny_library_id: videoData.libraryId,
+                                                            video_status: 'ready',
+                                                            content_url: `https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.guid}`
+                                                        })
+                                                        .eq('id', lesson.id)
+                                                        .select()
+                                                        .single();
+
+                                                    console.log('📊 Database response:', { data, error });
+                                                    if (error) throw error;
+
+                                                    console.log('✅ Database updated successfully!');
+                                                    toast.success('Video uploaded and saved successfully!');
+
+                                                    // Update local state
+                                                    onUpdate({
+                                                        ...lesson,
+                                                        video_provider: 'bunny',
+                                                        video_type: 'vod',
+                                                        bunny_video_id: videoData.videoId,
+                                                        bunny_guid: videoData.guid,
+                                                        bunny_library_id: videoData.libraryId,
+                                                        video_status: 'ready',
+                                                        content_url: `https://iframe.mediadelivery.net/embed/${videoData.libraryId}/${videoData.guid}`
+                                                    });
+                                                } catch (error: any) {
+                                                    console.error('Failed to save video data:', error);
+                                                    toast.error('Video uploaded but failed to save: ' + error.message);
+                                                }
+                                            }}
+                                            onError={(error) => {
+                                                toast.error(error);
+                                            }}
+                                        />
+
+                                        {/* Show preview if video is uploaded */}
+                                        {lesson.bunny_video_id && lesson.bunny_library_id && (
+                                            <div className="space-y-2">
+                                                <Label className="dark:text-slate-300">Uploaded Video Preview</Label>
+                                                <div className="aspect-video bg-black rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800">
+                                                    <BunnyPlayer
+                                                        videoId={lesson.bunny_video_id}
+                                                        libraryId={lesson.bunny_library_id}
+                                                        videoType="vod"
+                                                        videoStatus={lesson.video_status}
+                                                        className="w-full h-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </TabsContent>
+
+                                    <TabsContent value="live" className="space-y-4">
+                                        <JitsiLiveCreator
+                                            lessonId={lesson.id}
+                                            lessonTitle={title}
+                                            initialMeetingData={
+                                                lesson.jitsi_meeting_id && lesson.jitsi_meeting_url
+                                                    ? {
+                                                        meetingId: lesson.jitsi_meeting_id,
+                                                        meetingUrl: lesson.jitsi_meeting_url
+                                                    }
+                                                    : null
+                                            }
+                                            onMeetingCreated={async (meetingData) => {
+                                                try {
+                                                    // Save meeting data to lesson
+                                                    const { error } = await supabase
+                                                        .from('lessons')
+                                                        .update({
+                                                            video_provider: 'jitsi',
+                                                            video_type: 'live',
+                                                            jitsi_meeting_id: meetingData.meetingId,
+                                                            jitsi_meeting_url: meetingData.meetingUrl,
+                                                            video_status: 'live',
+                                                            content_url: meetingData.meetingUrl
+                                                        })
+                                                        .eq('id', lesson.id);
+
+                                                    if (error) throw error;
+
+                                                    toast.success('Live class meeting created successfully!');
+
+                                                    // Update local state
+                                                    onUpdate({
+                                                        ...lesson,
+                                                        video_provider: 'jitsi',
+                                                        video_type: 'live',
+                                                        jitsi_meeting_id: meetingData.meetingId,
+                                                        jitsi_meeting_url: meetingData.meetingUrl,
+                                                        video_status: 'live',
+                                                        content_url: meetingData.meetingUrl
+                                                    });
+                                                } catch (error: any) {
+                                                    console.error('Failed to save stream data:', error);
+                                                    toast.error('Stream created but failed to save: ' + error.message);
+                                                }
+                                            }}
+                                            onError={(error) => {
+                                                toast.error(error);
+                                            }}
+                                        />
+                                    </TabsContent>
+                                </Tabs>
                             )}
                         </>
                     )}
+
 
                     {lesson.content_type === "pdf" && (
                         <>
@@ -1098,6 +1392,7 @@ function LessonEditor({ lesson, onUpdate, onDelete }: { lesson: Lesson, onUpdate
                     )}
                 </div>
             </div>
+
         </div>
     );
 }
@@ -1114,7 +1409,7 @@ function convertToEmbedUrl(url: string): string {
     }
 
     // Vimeo
-    const vimeoRegex = /vimeo\.com\/(?:.*\/)?(\d+)/;
+    const vimeoRegex = /vimeo\.com\/(?:.*\/)?(\\d+)/;
     const vimeoMatch = url.match(vimeoRegex);
     if (vimeoMatch) {
         return `https://player.vimeo.com/video/${vimeoMatch[1]}`;

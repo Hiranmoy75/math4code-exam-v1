@@ -154,10 +154,20 @@ export async function POST(req: Request) {
                     await supabase.from("enrollments").insert({
                         user_id: payment.user_id,
                         course_id: payment.course_id,
+                        status: "active",
+                        payment_id: payment.id,
                         enrolled_at: new Date().toISOString(),
                         progress: 0,
                         completed: false
                     });
+                    console.log("✅ Course enrollment created");
+                } else {
+                    // Update existing enrollment to active
+                    await supabase.from("enrollments").update({
+                        status: "active",
+                        payment_id: payment.id
+                    }).eq("id", existingEnrollment.id);
+                    console.log("✅ Course enrollment activated");
                 }
             }
         }

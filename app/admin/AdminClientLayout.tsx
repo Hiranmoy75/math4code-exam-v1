@@ -82,7 +82,7 @@ export default function AdminClientLayout({
         >{children}
         </main>
 
-        <MobileNav theme={theme} toggleTheme={toggleTheme} />
+        <MobileNav theme={theme} toggleTheme={toggleTheme} links={links} profile={profile} />
       </div>
       <CommunityModal />
     </CommunityModalProvider>

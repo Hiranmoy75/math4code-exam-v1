@@ -7,6 +7,8 @@ interface MarkLessonCompleteParams {
     courseId: string
 }
 
+import { awardCoins } from "@/app/actions/rewardActions";
+
 export function useMarkLessonComplete() {
     const queryClient = useQueryClient()
 
@@ -51,12 +53,25 @@ export function useMarkLessonComplete() {
                 .eq("user_id", userId)
                 .eq("course_id", courseId)
 
+            // --- REWARD TRIGGER ---
+            // Award generic lesson completion coins
+            // The Server Action handles duplicates/limits
+            try {
+                const rewardRes = await awardCoins(userId, 'lesson_completion', lessonId, 'Completed a lesson');
+                console.log("Reward Result:", rewardRes);
+            } catch (err) {
+                console.error("Failed to award coins:", err);
+            }
+            // ----------------------
+
             return data
         },
         onSuccess: (_, variables) => {
             // Invalidate relevant queries
             queryClient.invalidateQueries({ queryKey: ["student-courses", variables.userId] })
             queryClient.invalidateQueries({ queryKey: ["lesson-progress", variables.userId, variables.courseId] })
+            // Refresh rewards UI
+            queryClient.invalidateQueries({ queryKey: ["user-rewards", variables.userId] })
         },
     })
 }

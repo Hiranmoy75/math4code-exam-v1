@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Header } from "@/components/landing/Header";
-import { Footer } from "@/components/landing/Footer";
 import { CheckCircle2, Users, Trophy, Target } from "lucide-react";
 
 export default function AboutPage() {
@@ -64,7 +63,6 @@ export default function AboutPage() {
                 </div>
             </div>
 
-            <Footer />
         </main>
     );
 }

@@ -3,11 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-type ActionType = 'login' | 'video_watch' | 'quiz_completion' | 'module_completion' | 'referral' | 'bonus' | 'mission_complete';
+type ActionType = 'login' | 'video_watch' | 'lesson_completion' | 'quiz_completion' | 'module_completion' | 'referral' | 'bonus' | 'mission_complete';
 
 const REWARD_RULES = {
     login: { coins: 5, limit: 1 },
     video_watch: { coins: 10, limit: 10 },
+    lesson_completion: { coins: 10, limit: 20 }, // Generic lesson completion
     quiz_completion: { coins: 15, limit: 10 },
     quiz_bonus: { coins: 10, limit: 10 },
     module_completion: { coins: 50, limit: 5 },
@@ -59,86 +60,24 @@ export async function getRewardStatus(userId: string) {
 export async function checkStreak(userId: string) {
     const supabase = await createClient();
 
-    // Get current reward status
-    let { data: rewardStatus } = await supabase
+    // Just fetch the current status to display to the user
+    // The actual update happens when 'login' reward is awarded below
+    const { data: rewardStatus } = await supabase
         .from("user_rewards")
-        .select("*")
+        .select("current_streak, longest_streak, last_activity_date")
         .eq("user_id", userId)
         .single();
 
-    if (!rewardStatus) {
-        // Initialize if not exists
-        const { data: newStatus, error } = await supabase
-            .from("user_rewards")
-            .insert({ user_id: userId, current_streak: 1, last_activity_date: new Date().toISOString() })
-            .select()
-            .single();
+    if (!rewardStatus) return { streak: 0, message: null };
 
-        if (error) {
-            if (error.code === '23505') {
-                const { data: retryData } = await supabase
-                    .from("user_rewards")
-                    .select("*")
-                    .eq("user_id", userId)
-                    .single();
-                rewardStatus = retryData;
-            } else {
-                console.error("Error creating user_rewards in checkStreak:", error);
-                return { streak: 0, message: "System error" };
-            }
-        } else {
-            rewardStatus = newStatus;
-            return { streak: 1, message: "🔥 First day! Let's start a streak!" };
-        }
-    }
+    // We can infer if they are on a streak or if it's broken based on the date,
+    // but primarily we just want to show the current value.
+    // The DB trigger updates this immediately upon the 'login' transaction insertion.
 
-    if (!rewardStatus) return { streak: 0, message: "Error" };
-
-    const lastActivity = new Date(rewardStatus.last_activity_date);
-    const today = new Date();
-
-    // Check if same day
-    const isSameDay = lastActivity.toDateString() === today.toDateString();
-
-    if (isSameDay) {
-        return { streak: rewardStatus.current_streak, message: null };
-    }
-
-    // Check if yesterday (streak continues)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const isYesterday = lastActivity.toDateString() === yesterday.toDateString();
-
-    let newStreak = rewardStatus.current_streak;
-    let message = null;
-
-    if (isYesterday) {
-        newStreak += 1;
-        message = "🔥 Great job! Your streak is alive!";
-
-        // Check milestones
-        if (newStreak === 3) await awardCoins(userId, 'bonus', undefined, 'Streak Milestone: 3 Days');
-        if (newStreak === 7) await awardCoins(userId, 'bonus', undefined, 'Streak Milestone: 7 Days');
-        if (newStreak === 30) await awardCoins(userId, 'bonus', undefined, 'Streak Milestone: 30 Days');
-
-        // Check Badge: Streak Master
-        if (newStreak >= 7) await checkBadgeUnlock(userId, 'streak_7');
-        if (newStreak >= 30) await checkBadgeUnlock(userId, 'streak_30');
-
-    } else {
-        // Gap >= 2 days, reset streak
-        newStreak = 1;
-        message = "Don’t give up! Ekdin break normal. Baro shathe abar shuru kori.";
-    }
-
-    // Update streak
-    await supabase.from("user_rewards").update({
-        current_streak: newStreak,
-        longest_streak: Math.max(newStreak, rewardStatus.longest_streak),
-        last_activity_date: new Date().toISOString()
-    }).eq("user_id", userId);
-
-    return { streak: newStreak, message };
+    return {
+        streak: rewardStatus.current_streak,
+        message: null
+    };
 }
 
 export async function awardCoins(
@@ -150,64 +89,16 @@ export async function awardCoins(
     const supabase = await createClient();
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Get current status
-    let { data: status } = await supabase
-        .from("user_rewards")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
-
-    if (!status) {
-        // Create if not exists (simplified for brevity, similar to getRewardStatus)
-        const { data } = await supabase.from("user_rewards").insert({ user_id: userId }).select().single();
-        status = data;
-    }
-
-    if (!status) return { success: false, message: "Could not initialize rewards" };
-
-    // Update Daily Mission Progress (Run this before coin checks so missions update even if daily cap is reached)
-    if (action === 'login') await updateMissionProgress(userId, 'login');
-    if (action === 'video_watch') await updateMissionProgress(userId, 'video');
-    if (action == 'quiz_completion') await updateMissionProgress(userId, 'quiz');
-
-    // 2. Check daily cap
-    if (status.last_coin_date !== today) {
-        status.daily_coins_earned = 0;
-    }
-
-    if (status.daily_coins_earned >= DAILY_COIN_CAP) {
-        return { success: false, message: "Daily limit reached! Come back tomorrow." };
-    }
-
-    // 3. Calculate coins
-    let coins = 0;
-    switch (action) {
-        case 'login': coins = REWARD_RULES.login.coins; break;
-        case 'video_watch': coins = REWARD_RULES.video_watch.coins; break;
-        case 'quiz_completion': coins = REWARD_RULES.quiz_completion.coins; break;
-        case 'module_completion': coins = REWARD_RULES.module_completion.coins; break;
-        case 'referral': coins = REWARD_RULES.referral.coins; break;
-        case 'mission_complete': coins = REWARD_RULES.mission_complete.coins; break;
-        case 'bonus': coins = 10; break;
-    }
-
-    // 4. Adjust for cap
-    if (status.daily_coins_earned + coins > DAILY_COIN_CAP) {
-        coins = DAILY_COIN_CAP - status.daily_coins_earned;
-    }
-
-    if (coins <= 0) return { success: false, message: "Daily limit reached!" };
-
-    // 5. Check for duplicate actions
-    // STRICT LOGIN CHECK: If action is login, entityId MUST be today's date
+    // 1. Check strict duplicate rules (Client-Side Protection)
+    // We don't want to spam the DB trigger with 'login' events every refresh
     if (action === 'login') {
-        entityId = today;
+        entityId = today; // Force entityId to be date for login
     }
 
     if (entityId) {
         const { data: existing } = await supabase
             .from("reward_transactions")
-            .select("*")
+            .select("id")
             .eq("user_id", userId)
             .eq("action_type", action)
             .eq("entity_id", entityId)
@@ -219,8 +110,23 @@ export async function awardCoins(
         }
     }
 
-    // 6. Update DB
-    await supabase.from("reward_transactions").insert({
+    // 2. Define Amount (We still define it here to pass to DB, or DB could handle default)
+    let coins = 0;
+    switch (action) {
+        case 'login': coins = REWARD_RULES.login.coins; break;
+        case 'video_watch': coins = REWARD_RULES.video_watch.coins; break;
+        case 'lesson_completion': coins = REWARD_RULES.lesson_completion.coins; break;
+        case 'quiz_completion': coins = REWARD_RULES.quiz_completion.coins; break;
+        case 'module_completion': coins = REWARD_RULES.module_completion.coins; break;
+        case 'referral': coins = REWARD_RULES.referral.coins; break;
+        case 'mission_complete': coins = REWARD_RULES.mission_complete.coins; break;
+        case 'bonus': coins = 10; break;
+        default: coins = 0;
+    }
+
+    // 3. Insert Transaction (The DB Trigger takes it from here!)
+    // It will: Update Coins, XP, Level, and Streak (if login)
+    const { error } = await supabase.from("reward_transactions").insert({
         user_id: userId,
         amount: coins,
         action_type: action,
@@ -228,35 +134,20 @@ export async function awardCoins(
         description: description || `Reward for ${action}`
     });
 
-    // Update Daily Mission Progress - MOVED TO TOP
-    // if (action === 'login') await updateMissionProgress(userId, 'login');
-    // if (action === 'video_watch') await updateMissionProgress(userId, 'video');
-    // if (action === 'quiz_completion') await updateMissionProgress(userId, 'quiz');
-
-    const newTotalCoins = status.total_coins + coins;
-    const newXp = (status.xp || 0) + (coins * 10);
-    const newWeeklyXp = (status.weekly_xp || 0) + (coins * 10);
-
-    // Level calculation (simple formula: level = sqrt(xp / 100))
-    const newLevel = Math.floor(Math.sqrt(newXp / 100)) || 1;
-
-    await supabase.from("user_rewards").update({
-        total_coins: newTotalCoins,
-        daily_coins_earned: status.daily_coins_earned + coins,
-        last_coin_date: today,
-        xp: newXp,
-        weekly_xp: newWeeklyXp,
-        level: newLevel
-    }).eq("user_id", userId);
-
-    // Check for Level Up Badge
-    if (newLevel > (status.level || 1)) {
-        // Could trigger a notification here
+    if (error) {
+        console.error("Reward Insert Error:", error);
+        return { success: false, message: "Failed to process reward." };
     }
 
+    // 4. Post-Process (Optional Notifications or Revalidation)
     revalidatePath("/student");
 
-    return { success: true, coins, message: `⭐ Awesome +${coins} coins!` };
+    if (action === 'login') {
+        // Special message for login
+        return { success: true, coins, message: "Daily Reward Claimed!" };
+    }
+
+    return { success: true, coins, message: `⭐ +${coins} coins!` };
 }
 
 export async function getLeaderboard(type: 'weekly' | 'all_time' = 'all_time', limit: number = 10) {

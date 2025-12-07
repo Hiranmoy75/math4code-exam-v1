@@ -4,9 +4,12 @@ import React, { useState } from 'react';
 import { createClient } from "@/lib/supabase/client"
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Camera, Loader2, Upload } from "lucide-react";
 
 async function uploadAvatar(file: File) {
-     const supabase = createClient()
+  const supabase = createClient()
   const { data: userData, error: userErr } = await supabase.auth.getUser();
   if (userErr) throw userErr;
   if (!userData.user) throw new Error('Not signed in');
@@ -27,90 +30,83 @@ async function uploadAvatar(file: File) {
 }
 
 export default function AvatarUpload({ currentUrl }: { currentUrl?: string | null }) {
-    const supabase = createClient()
+  const supabase = createClient()
   const [loading, setLoading] = useState(false);
   const qc = useQueryClient();
 
-const mutation = useMutation({
-  mutationFn: async (file: File) => {
-    // uploadAvatar must return a string (public URL)
-    const publicUrl = await uploadAvatar(file);
-    return publicUrl;
-  },
+  const mutation = useMutation({
+    mutationFn: async (file: File) => {
+      const publicUrl = await uploadAvatar(file);
+      return publicUrl;
+    },
 
-  onSuccess: async (publicUrl) => {
-    // ✅ Supabase v2 getUser() returns { data: { user }, error }
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr) {
-      toast.error(userErr.message);
-      return;
-    }
+    onSuccess: async (publicUrl) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr) {
+        toast.error(userErr.message);
+        return;
+      }
 
-    const user = userData?.user;
-    if (!user) {
-      toast.error("User not found");
-      return;
-    }
+      const user = userData?.user;
+      if (!user) {
+        toast.error("User not found");
+        return;
+      }
 
-    // ✅ Update avatar URL in profiles
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        avatar_url: publicUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", user.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", user.id);
 
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
 
-    // ✅ React Query v5 syntax
-    qc.invalidateQueries({ queryKey: ["profile"] });
-    toast.success("Avatar updated successfully!");
-  },
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      toast.success("Avatar updated successfully!");
+    },
 
-  onError: (err: any) => {
-    toast.error(err?.message || "Upload failed");
-  },
-});
+    onError: (err: any) => {
+      toast.error(err?.message || "Upload failed");
+    },
+  });
 
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const f = e.target.files?.[0];
-  if (!f) return;
-  setLoading(true);
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setLoading(true);
 
-  // ✅ Correct syntax for useMutation (v5)
-  mutation.mutate(f, {
-    onSettled: () => {
-      setLoading(false);
-      e.target.value = ""; // reset input for next upload
-    },
-  });
-};
+    mutation.mutate(f, {
+      onSettled: () => {
+        setLoading(false);
+        e.target.value = "";
+      },
+    });
+  };
 
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="w-24 h-24 rounded-full overflow-hidden border">
-        {currentUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={currentUrl} alt="avatar" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500">
-            <span>NO</span>
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col items-center gap-4 group cursor-pointer relative">
+      <div className="relative">
+        <Avatar className="w-24 h-24 border-4 border-white dark:border-slate-800 shadow-xl">
+          <AvatarImage src={currentUrl || ""} className="object-cover" />
+          <AvatarFallback className="text-2xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400">
+            {/* Logic for initial could be added if name was passed, but relying on fallback string logic in Avatar component or parent usually */}
+            U
+          </AvatarFallback>
+        </Avatar>
 
-      <div>
-        <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 bg-white border rounded-md shadow-sm text-sm">
-          <input onChange={onFile} type="file" accept="image/*" className="hidden" />
-          {loading ? 'Uploading...' : 'Upload Avatar'}
+        <label className="absolute bottom-0 right-0 p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg cursor-pointer transition-colors">
+          <input onChange={onFile} type="file" accept="image/*" className="hidden" disabled={loading} />
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
         </label>
       </div>
+      <p className="text-xs text-muted-foreground font-medium">Click camera icon to change</p>
     </div>
   );
 }

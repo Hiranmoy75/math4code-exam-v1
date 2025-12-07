@@ -2,7 +2,6 @@
 
 import React from "react";
 import { Header } from "@/components/landing/Header";
-import { Footer } from "@/components/landing/Footer";
 import { Mail, Phone, MapPin, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,7 +90,6 @@ export default function ContactPage() {
                 </div>
             </div>
 
-            <Footer />
         </main>
     );
 }
