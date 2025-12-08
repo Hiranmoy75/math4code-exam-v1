@@ -1,52 +1,27 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import AdminClientLayout from "../admin/AdminClientLayout";
 import { CommunityModalProvider } from "@/context/CommunityModalContext";
 import { CommunityModal } from "@/components/community/CommunityModal";
+import { useCurrentUser } from "@/hooks/student/useCurrentUser";
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const supabase = createClient();
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: profile, isLoading } = useCurrentUser();
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { user },
-        error: userErr,
-      } = await supabase.auth.getUser();
-
-      if (userErr || !user) {
+    // Only redirect if we have definitively finished loading and there is no user,
+    // or if the user is not a student.
+    if (!isLoading) {
+      if (!profile) {
         router.replace("/auth/login");
-        return;
-      }
-
-      const { data: profileData, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error || !profileData) {
-        router.replace("/auth/login");
-        return;
-      }
-
-      if (profileData.role !== "student") {
+      } else if (profile.role !== "student") {
         router.replace("/admin/dashboard");
-        return;
       }
-
-      setProfile(profileData);
-      setLoading(false);
-    };
-
-    checkAuth();
-  }, [router, supabase]);
+    }
+  }, [profile, isLoading, router]);
 
   const links = [
     { icon: "home", label: "Dashboard", href: "/student/dashboard" },
@@ -60,17 +35,32 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     { icon: "settings", label: "Settings", href: "/student/settings" },
   ];
 
-  if (loading) {
+  // If loading and NO data (initial fetch), show loading.
+  // If we have cached data, we skip this and render immediately.
+  if (isLoading && !profile) {
     return (
       <div className="flex items-center justify-center h-screen text-gray-600">
-        Checking student access...
+        {/* Optional: Add a spinner here if desired, but text is fine */}
+        Checking access...
       </div>
     );
   }
 
+  // If not loading but no profile (will redirect in effect), allow render or return null to prevent flash
+  if (!profile) return null;
+
+  // Adapt the profile object for AdminClientLayout if necessary
+  const layoutProfile = {
+    id: profile.id,
+    full_name: profile.fullName,
+    email: profile.email,
+    role: profile.role,
+    avatar_url: null, // useCurrentUser might not fetch avatar_url, add if needed
+  };
+
   return (
     <CommunityModalProvider>
-      <AdminClientLayout profile={profile} links={links}>
+      <AdminClientLayout profile={layoutProfile} links={links}>
         {children}
       </AdminClientLayout>
       <CommunityModal />

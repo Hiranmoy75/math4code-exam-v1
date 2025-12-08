@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useExams } from "@/hooks/useExams";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,44 +40,32 @@ export default function ExamForm() {
   const [durationMinutes, setDurationMinutes] = useState("180");
   const [totalMarks, setTotalMarks] = useState("300");
   const [negativeMarking, setNegativeMarking] = useState("0");
-  const [isLoading, setIsLoading] = useState(false);
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  const [_, setIsLoadingLegacy] = useState(false); // Kept for now if other logic uses it, but logic moved to hook
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { createExam, isCreating } = useExams();
 
   const handleCreateExam = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError(null);
 
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) throw new Error("Not authenticated");
-
-      const { data, error: insertError } = await supabase
-        .from("exams")
-        .insert({
-          admin_id: user.id,
-          title,
-          description,
-          duration_minutes: Number.parseInt(durationMinutes),
-          total_marks: Number.parseInt(totalMarks),
-          negative_marking: Number.parseFloat(negativeMarking),
-          status: "draft",
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-
-      router.push(`/admin/exams/${data.id}`);
+      await createExam({
+        title,
+        description,
+        duration_minutes: Number.parseInt(durationMinutes),
+        total_marks: Number.parseInt(totalMarks),
+        status: "draft",
+      });
+      // createExam hook handles success toast/redirect
     } catch (err: unknown) {
+      // createExam hook handles persistent error toast, but we set local error state for UI feedback too if needed
+      // Note: useExams onError toast handles the user notification.
+      // We can just log it or rely on the hook.
       setError(err instanceof Error ? err.message : "Failed to create exam");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -138,16 +126,7 @@ export default function ExamForm() {
             />
           </div>
 
-          {/* Negative Marking */}
-          <FormField
-            label="Negative Marking"
-            value={negativeMarking}
-            onChange={setNegativeMarking}
-            type="number"
-            step="0.25"
-            icon={<TrendingDown className="w-5 h-5 text-slate-400" />}
-            description="Marks deducted per incorrect answer (0 for no penalty)"
-          />
+
 
           {/* Error Message */}
           {error && (
@@ -165,10 +144,10 @@ export default function ExamForm() {
           <div className="flex gap-4 pt-4">
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={isCreating}
               className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20"
             >
-              {isLoading ? (
+              {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Creating Exam...
@@ -184,7 +163,7 @@ export default function ExamForm() {
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              disabled={isLoading}
+              disabled={isCreating}
               className="border-slate-300 dark:border-slate-600"
             >
               <X className="w-4 h-4 mr-2" />

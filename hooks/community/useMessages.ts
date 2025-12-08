@@ -9,15 +9,23 @@ export const useChannelMessages = (channelId: string) => {
   const query = useInfiniteQuery({
     queryKey: ["community", "messages", channelId],
     queryFn: async ({ pageParam = 0 }) => {
-      const pageSize = 50;
+      const pageSize = 20; // Reduced from 50 for performance
       const start = pageParam * pageSize;
       const end = start + pageSize - 1;
 
       const { data, error } = await supabase
         .from("community_messages")
         .select(`
-          *,
-          profiles (
+          id,
+          content,
+          created_at,
+          user_id,
+          channel_id,
+          attachments,
+          is_pinned,
+          is_announcement,
+          parent_message_id,
+          profiles:user_id (
             full_name,
             avatar_url,
             role
@@ -41,13 +49,16 @@ export const useChannelMessages = (channelId: string) => {
         throw error;
       }
 
-      return data as CommunityMessage[];
+      return data as unknown as CommunityMessage[];
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === 50 ? allPages.length : undefined;
+      return lastPage.length === 20 ? allPages.length : undefined;
     },
     enabled: !!channelId,
+    staleTime: 1000 * 60, // 1 minute stale time
+    gcTime: 1000 * 60 * 30, // 30 minutes garbage collection
+    refetchOnWindowFocus: false, // Prevent jarring refetch of chat on focus
   });
 
   // Real-time subscription
@@ -55,7 +66,7 @@ export const useChannelMessages = (channelId: string) => {
   useEffect(() => {
     if (!channelId) return;
 
-    console.log('🔌 Setting up realtime subscription for channel:', channelId);
+    // console.log('🔌 Setting up realtime subscription for channel:', channelId);
 
     const channel = supabase
       .channel(`community_messages:${channelId}`)
@@ -68,24 +79,32 @@ export const useChannelMessages = (channelId: string) => {
           filter: `channel_id=eq.${channelId}`,
         },
         async (payload) => {
-          console.log('📨 Realtime message received:', payload.new);
+          // console.log('📨 Realtime message received:', payload.new);
 
           // Fetch the complete message with profile
           const { data: newMessage, error } = await supabase
             .from("community_messages")
             .select(`
-                            *,
-                            profiles (
-                                full_name,
-                                avatar_url,
-                                role
-                            ),
-                            community_reactions!message_id (
-                                id,
-                                emoji,
-                                user_id
-                            )
-                        `)
+                id,
+                content,
+                created_at,
+                user_id,
+                channel_id,
+                attachments,
+                is_pinned,
+                is_announcement,
+                parent_message_id,
+                profiles:user_id (
+                    full_name,
+                    avatar_url,
+                    role
+                ),
+                community_reactions!message_id (
+                    id,
+                    emoji,
+                    user_id
+                )
+            `)
             .eq("id", payload.new.id)
             .single();
 
@@ -95,7 +114,7 @@ export const useChannelMessages = (channelId: string) => {
           }
 
           if (newMessage) {
-            console.log('✅ Adding message to cache:', newMessage.id);
+            // console.log('✅ Adding message to cache:', newMessage.id);
 
             queryClient.setQueryData(["community", "messages", channelId], (old: any) => {
               if (!old) return { pages: [[newMessage]], pageParams: [0] };
@@ -107,7 +126,6 @@ export const useChannelMessages = (channelId: string) => {
               );
 
               if (exists) {
-                console.log('⚠️ Message already exists in cache, skipping');
                 return old;
               }
 
@@ -118,7 +136,7 @@ export const useChannelMessages = (channelId: string) => {
           }
         }
       )
-      .subscribe((status) => { });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);

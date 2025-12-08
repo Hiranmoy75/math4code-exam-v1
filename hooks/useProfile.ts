@@ -15,11 +15,12 @@ export type Profile = {
 
 /**
  * Fetch the current logged-in student's profile.
+ * Now accepts optional abort signal.
  */
-export const fetchProfile = async (): Promise<Profile | null> => {
+export const fetchProfile = async (signal?: AbortSignal): Promise<Profile | null> => {
   const supabase = createClient();
 
-  // ✅ Correct destructuring for Supabase v2
+  // ✅ Correct destructuring
   const {
     data: { user },
     error: userErr,
@@ -28,11 +29,17 @@ export const fetchProfile = async (): Promise<Profile | null> => {
   if (userErr) throw userErr;
   if (!user) return null;
 
-  const { data, error } = await supabase
+  const query = supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
-    .single();
+    .eq('id', user.id);
+
+  // Attach signal if provided
+  if (signal) {
+    query.abortSignal(signal);
+  }
+
+  const { data, error } = await query.single();
 
   if (error) throw error;
   return data as Profile;
@@ -44,7 +51,7 @@ export const fetchProfile = async (): Promise<Profile | null> => {
 export const useProfileQuery = () => {
   return useQuery({
     queryKey: ['profile'],
-    queryFn: fetchProfile,
+    queryFn: ({ signal }) => fetchProfile(signal), // Pass signal down
     staleTime: 1000 * 60 * 1, // 1 minute
     gcTime: 1000 * 60 * 15, // 15 mins
     placeholderData: (previousData) => previousData, // keeps previous on refetch -> no UI flash

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { useExams } from "@/hooks/useExams"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +19,10 @@ export default function CreateTestSeriesPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const [loading, setLoading] = useState(false)
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  const [_, setLoadingLegacy] = useState(false)
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+
   const [isReady, setIsReady] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
@@ -27,6 +31,8 @@ export default function CreateTestSeriesPage() {
     price: "",
     is_free: true,
   })
+
+  const { createTestSeries, isCreatingTestSeries } = useExams()
 
   // Load user instantly without blocking render
   useEffect(() => {
@@ -53,31 +59,20 @@ export default function CreateTestSeriesPage() {
       return
     }
 
-    setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from("test_series")
-        .insert([
-          {
-            admin_id: userId,
-            title: formData.title,
-            description: formData.description,
-            price: formData.is_free ? 0 : Number.parseFloat(formData.price),
-            is_free: formData.is_free,
-            status: "draft",
-          },
-        ])
-        .select()
+      const data = await createTestSeries({
+        title: formData.title,
+        description: formData.description,
+        price: formData.is_free ? 0 : Number.parseFloat(formData.price),
+        is_free: formData.is_free,
+        status: "draft",
+      });
 
-      if (error) throw error
-
-      toast.success("Test series created successfully")
-      router.push(`/admin/test-series/${data[0].id}`)
+      // Navigate on success
+      router.push(`/admin/test-series/${data.id}`)
     } catch (err: any) {
       console.error(err)
-      toast.error("Failed to create test series: " + err.message)
-    } finally {
-      setLoading(false)
+      // Hook handles toast, but we can log
     }
   }
 
@@ -203,10 +198,10 @@ export default function CreateTestSeriesPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={loading}
+                  disabled={isCreatingTestSeries}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white min-w-[140px]"
                 >
-                  {loading ? (
+                  {isCreatingTestSeries ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Creating...

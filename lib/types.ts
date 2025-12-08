@@ -11,10 +11,11 @@ export interface User {
 
 export interface Exam {
   id: string
+  admin_id: string
   title: string
   description: string | null
-  created_by: string
-  total_duration: number
+  created_by: string | null
+  duration_minutes: number
   total_marks: number
   passing_marks: number | null
   status: "draft" | "published" | "archived"
@@ -23,10 +24,9 @@ export interface Exam {
   result_visibility: "immediate" | "scheduled" | "manual"
   result_release_time: string | null
   show_answers: boolean
-  negative_marking: boolean
-  negative_marks_per_question: number | null
+  max_attempts: number | null
   created_at: string
-  updated_at: string
+  updated_at?: string
 }
 
 export interface Section {

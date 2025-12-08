@@ -154,8 +154,8 @@ export function useSubmitExam() {
             attemptId,
             examId,
             responses,
-            sections,
-            totalMarks
+            sections, // Unused in RPC but kept for signature compatibility if needed
+            totalMarks // Unused in RPC
         }: {
             attemptId: string
             examId: string
@@ -163,8 +163,11 @@ export function useSubmitExam() {
             sections: Section[]
             totalMarks: number
         }) => {
-            // 1. Save all responses (Upsert)
-            console.log("Submitting exam...", { attemptId, examId, responsesCount: Object.keys(responses).length })
+            console.log("Submitting exam via Secure RPC...", { attemptId, examId })
+
+            // 1. Ensure all local responses are synced one last time (Optimization)
+            // Although we auto-saved, sending final state is safer.
+            // However, for pure speed, we assume auto-save worked or we do a bulk upsert here first.
 
             const entries = Object.entries(responses).map(([qid, ans]) => ({
                 attempt_id: attemptId,
@@ -178,159 +181,37 @@ export function useSubmitExam() {
                     onConflict: "attempt_id,question_id",
                 })
                 if (respError) {
-                    console.error("Error saving responses:", respError)
-                    throw new Error(`Failed to save responses: ${respError.message}`)
+                    console.error("Error saving final responses:", respError)
+                    throw new Error(`Failed to sync responses: ${respError.message}`)
                 }
             }
 
-            // 2. Mark attempt as submitted
-            const { error: updateError } = await supabase
-                .from("exam_attempts")
-                .update({ status: "submitted" })
-                .eq("id", attemptId)
-            if (updateError) {
-                console.error("Error updating attempt status:", updateError)
-                throw new Error(`Failed to update attempt status: ${updateError.message}`)
+            // 2. Call the Secure RPC
+            const { data: resultData, error: rpcError } = await supabase
+                .rpc('submit_exam_attempt', { p_attempt_id: attemptId, p_exam_id: examId })
+
+            if (rpcError) {
+                console.error("RPC Submission Error:", rpcError)
+                // Handle duplicate submission gracefully
+                if (rpcError.message.includes("already submitted")) {
+                    toast.info("Exam was already submitted.")
+                    // Fetch existing result
+                    const { data: existing } = await supabase.from("results").select("*").eq("attempt_id", attemptId).single()
+                    return existing
+                }
+                throw rpcError
             }
 
-            // 3. Calculate Result
-            const questionIds = Object.keys(responses)
-            let questions: any[] = []
-            if (questionIds.length > 0) {
-                const { data: qs, error: qError } = await supabase
-                    .from("questions")
-                    .select("*, options(*)")
-                    .in("id", questionIds)
-                if (qError) {
-                    console.error("Error fetching questions for grading:", qError)
-                    throw new Error(`Failed to fetch questions: ${qError.message}`)
-                }
-                questions = qs || []
+            // If RPC returned an error object inside JSON
+            if (resultData && (resultData as any).error) {
+                throw new Error((resultData as any).error)
             }
 
-            let obtainedMarks = 0
-            let correct = 0
-            let wrong = 0
-            let unanswered = 0
-
-            // Helper to evaluate
-            const evaluateQuestion = (q: any) => {
-                const ans = responses[q.id]
-                const correctMarks = q.marks ?? 0
-                const negativeMarks = q.negative_marks ?? 0
-
-                if (!ans || (Array.isArray(ans) && ans.length === 0)) {
-                    unanswered++
-                    return 0
-                }
-
-                let isCorrect = false
-                if (q.question_type === "NAT") {
-                    isCorrect = Number(ans) === Number(q.correct_answer)
-                } else if (q.question_type === "MCQ") {
-                    const correctOpt = q.options.find((o: any) => o.is_correct)?.id
-                    isCorrect = ans === correctOpt
-                } else if (q.question_type === "MSQ") {
-                    const correctIds = q.options.filter((o: any) => o.is_correct).map((o: any) => o.id).sort()
-                    const ansIds = (Array.isArray(ans) ? ans : [ans]).sort()
-                    isCorrect = correctIds.length === ansIds.length && correctIds.every((x: string, i: number) => x === ansIds[i])
-                }
-
-                if (isCorrect) {
-                    correct++
-                    return correctMarks
-                }
-                wrong++
-                return -Math.abs(negativeMarks)
-            }
-
-            questions.forEach((q) => {
-                obtainedMarks += evaluateQuestion(q)
-            })
-
-            const percentage = totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0
-
-            // 4. Insert Result
-            const { data: resultRow, error: resultError } = await supabase
-                .from("results")
-                .insert([
-                    {
-                        attempt_id: attemptId,
-                        total_marks: totalMarks,
-                        obtained_marks: obtainedMarks.toFixed(2),
-                        percentage: percentage.toFixed(2)
-                    },
-                ])
-                .select()
-                .single()
-
-            if (resultError) {
-                console.error("Error inserting result:", resultError)
-                throw new Error(`Failed to insert result: ${resultError.message}`)
-            }
-
-            // 5. Insert Section Results
-            for (const section of sections) {
-                const sectionQuestions = section.questions
-                let sectionTotal = 0,
-                    sectionObtained = 0,
-                    sectionCorrect = 0,
-                    sectionWrong = 0,
-                    sectionUnanswered = 0
-
-                sectionQuestions.forEach((q) => {
-                    sectionTotal += q.marks
-                    const ans = responses[q.id]
-                    const correctMarks = q.marks ?? 0
-                    const negativeMarks = q.negative_marks ?? 0
-
-                    if (!ans || (Array.isArray(ans) && ans.length === 0)) {
-                        sectionUnanswered++
-                        return
-                    }
-
-                    let isCorrect = false
-                    if (q.question_type === "NAT") {
-                        isCorrect = Number(ans) === Number(q.correct_answer)
-                    } else if (q.question_type === "MCQ") {
-                        const correctOpt = q.options?.find((o) => o.is_correct)?.id
-                        isCorrect = ans === correctOpt
-                    } else if (q.question_type === "MSQ") {
-                        const correctIds = q.options?.filter((o) => o.is_correct).map((o) => o.id).sort() || []
-                        const ansIds = (Array.isArray(ans) ? ans : [ans]).sort()
-                        isCorrect = correctIds.length === ansIds.length && correctIds.every((x, i) => x === ansIds[i])
-                    }
-
-                    if (isCorrect) {
-                        sectionCorrect++
-                        sectionObtained += correctMarks
-                    } else {
-                        sectionWrong++
-                        sectionObtained -= Math.abs(negativeMarks)
-                    }
-                })
-
-                const { error: secError } = await supabase.from("section_results").insert({
-                    result_id: resultRow.id,
-                    section_id: section.id,
-                    total_marks: sectionTotal,
-                    obtained_marks: sectionObtained,
-                    correct_answers: sectionCorrect,
-                    wrong_answers: sectionWrong,
-                    unanswered: sectionUnanswered,
-                })
-                if (secError) {
-                    console.error("Error inserting section result:", secError)
-                    throw new Error(`Failed to insert section result: ${secError.message}`)
-                }
-            }
-
-            return resultRow
+            return resultData
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["test-series-details"] })
             queryClient.invalidateQueries({ queryKey: ["exam-session"] })
-            // Invalidate attempts list to update "Attempts Remaining" count
             queryClient.invalidateQueries({ queryKey: ["exam-attempts"] })
             toast.success("Exam submitted successfully!")
         },

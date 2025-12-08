@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
     Accordion,
@@ -41,13 +42,10 @@ import { createClient } from "@/lib/supabase/client"
 import { useLessonProgress, useMarkLessonComplete } from "@/hooks/student/useLessonProgress"
 import { ModeToggle } from "@/components/mode-toggle"
 import { useCommunityModal } from "@/context/CommunityModalContext"
+import { useCourse } from "@/hooks/useCourse"
+import { useLessons } from "@/hooks/useLessons"
 
 interface CoursePlayerClientProps {
-    course: any
-    modules: any[]
-    currentLesson: any
-    nextLessonId: string | null
-    prevLessonId: string | null
     courseId: string
     user: any
     profile: any
@@ -55,11 +53,6 @@ interface CoursePlayerClientProps {
 }
 
 export function CoursePlayerClient({
-    course,
-    modules,
-    currentLesson,
-    nextLessonId,
-    prevLessonId,
     courseId,
     user,
     profile,
@@ -67,21 +60,45 @@ export function CoursePlayerClient({
 }: CoursePlayerClientProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false)
-    const [userId, setUserId] = useState<string | null>(null)
+    const [userId, setUserId] = useState<string | null>(user?.id || null)
     const [progressPercentage, setProgressPercentage] = useState(0)
     const { openCommunity } = useCommunityModal()
 
-    // Get user ID
-    useEffect(() => {
-        const getUser = async () => {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                setUserId(user.id)
-            }
+    // LAYER 2 OPTIMIZATION: Use Hooks with Cached Data
+    const { data: course } = useCourse(courseId);
+    const { data: modules } = useLessons(courseId);
+
+    const searchParams = useSearchParams();
+    const lessonIdParam = searchParams.get("lessonId");
+
+    // Flatten lessons logic moved here
+    const allLessons = useMemo(() => {
+        if (!modules) return [];
+        return modules.flatMap((m: any) => m.lessons); // Lessons are sorted in the hook
+    }, [modules]);
+
+    // Determine Current Lesson
+    const currentLesson = useMemo(() => {
+        if (!allLessons.length) return null;
+        if (lessonIdParam) {
+            return allLessons.find((l: any) => l.id === lessonIdParam) || null;
         }
-        getUser()
-    }, [])
+        return allLessons[0]; // Default to first lesson if not specified
+    }, [allLessons, lessonIdParam]);
+
+    // Refetch user execution handled by hooks/props usually, keeping legacy effect for safety or removal
+    useEffect(() => {
+        if (!userId) {
+            const getUser = async () => {
+                const supabase = createClient()
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    setUserId(user.id)
+                }
+            }
+            getUser()
+        }
+    }, [userId])
 
     // Fetch lesson progress
     const { data: lessonProgress } = useLessonProgress(userId || undefined, courseId)
@@ -114,20 +131,9 @@ export function CoursePlayerClient({
     // Mutation to mark lesson complete
     const { mutate: markComplete } = useMarkLessonComplete()
 
-    const handleNextLesson = () => {
-        console.log("handleNextLesson called", { currentLesson, userId, courseId });
-        if (currentLesson && userId) {
-            markComplete({
-                userId,
-                lessonId: currentLesson.id,
-                courseId
-            }, {
-                onSuccess: () => console.log("Lesson marked complete successfully"),
-                onError: (err) => console.error("Failed to mark lesson complete:", err)
-            })
-        } else {
-            console.warn("Cannot mark complete: Missing userId or currentLesson");
-        }
+    // Render loading or empty states if data isn't hydrated yet (should not happen with hydration)
+    if (!course || !modules) {
+        return null;
     }
 
     return (
@@ -165,7 +171,7 @@ export function CoursePlayerClient({
                 <ScrollArea className="flex-1 min-h-0 bg-muted/5">
                     <TooltipProvider delayDuration={0}>
                         <Accordion type="single" collapsible className="w-full space-y-2 p-2" defaultValue={modules[0]?.id}>
-                            {modules.map((module) => (
+                            {modules.map((module: any) => (
                                 <AccordionItem key={module.id} value={module.id} className="border-none">
                                     <AccordionTrigger className="px-3 hover:no-underline hover:bg-muted/50 py-3 rounded-lg text-foreground/80 data-[state=open]:text-foreground transition-all">
                                         <div className="flex items-center justify-between w-full pr-2">
@@ -260,7 +266,7 @@ export function CoursePlayerClient({
                             </div>
                             <ScrollArea className="flex-1 min-h-0 bg-muted/5">
                                 <Accordion type="single" collapsible className="w-full space-y-2 p-2" defaultValue={modules[0]?.id}>
-                                    {modules.map((module) => (
+                                    {modules.map((module: any) => (
                                         <AccordionItem key={module.id} value={module.id} className="border-none">
                                             <AccordionTrigger className="px-3 hover:no-underline hover:bg-muted/50 py-3 rounded-lg text-foreground/80 data-[state=open]:text-foreground transition-all">
                                                 <div className="flex items-center justify-between w-full pr-2">

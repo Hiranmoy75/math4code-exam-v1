@@ -19,7 +19,9 @@ export default async function MarketplacePage({
     let query = supabase
         .from("courses")
         .select("*, profiles:creator_id(full_name)")
-        .eq("is_published", true);
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .range(0, 19);
 
     if (q) {
         query = query.ilike("title", `%${q}%`);
@@ -192,6 +194,7 @@ export default async function MarketplacePage({
                     </div>
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }

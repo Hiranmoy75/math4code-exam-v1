@@ -1,43 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 interface Props { userId: string }
 
 export default function ExamCharts({ userId }: Props) {
-  const [attemptsData, setAttemptsData] = useState<any[]>([]);
-  const [performanceData, setPerformanceData] = useState<any[]>([]);
+  const supabase = createClientComponentClient();
 
-  useEffect(() => {
-    // TODO: Fetch real data from API
-    setAttemptsData([
-      { name: "Mon", attempts: 12 },
-      { name: "Tue", attempts: 19 },
-      { name: "Wed", attempts: 15 },
-      { name: "Thu", attempts: 25 },
-      { name: "Fri", attempts: 22 },
-      { name: "Sat", attempts: 18 },
-      { name: "Sun", attempts: 14 },
-    ]);
-    setPerformanceData([
-      { name: "Mon", avgScore: 78 },
-      { name: "Tue", avgScore: 82 },
-      { name: "Wed", avgScore: 80 },
-      { name: "Thu", avgScore: 85 },
-      { name: "Fri", avgScore: 88 },
-      { name: "Sat", avgScore: 90 },
-      { name: "Sun", avgScore: 87 },
-    ]);
-  }, [userId]);
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-charts', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc('get_admin_chart_data', { admin_uuid: userId });
+
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Default empty state for charts
+  const chartData = data || [
+    { name: "Mon", attempts: 0, avgScore: 0 },
+    { name: "Tue", attempts: 0, avgScore: 0 },
+    { name: "Wed", attempts: 0, avgScore: 0 },
+    { name: "Thu", attempts: 0, avgScore: 0 },
+    { name: "Fri", attempts: 0, avgScore: 0 },
+    { name: "Sat", attempts: 0, avgScore: 0 },
+    { name: "Sun", attempts: 0, avgScore: 0 },
+  ];
+
+  const attemptsData = chartData.map((d: any) => ({ name: d.name, attempts: d.attempts }));
+  const performanceData = chartData.map((d: any) => ({ name: d.name, avgScore: d.avgScore }));
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="h-[400px] w-full bg-white/50 dark:bg-slate-800/50 rounded-xl animate-pulse" />
+        <div className="h-[400px] w-full bg-white/50 dark:bg-slate-800/50 rounded-xl animate-pulse" />
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <Card className="border-none shadow-lg bg-white dark:bg-slate-800">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">Exam Attempts</CardTitle>
-          <CardDescription className="text-slate-500 dark:text-slate-400">Weekly student submissions</CardDescription>
+          <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">Exam Attempts (Last 7 Days)</CardTitle>
+          <CardDescription className="text-slate-500 dark:text-slate-400">Daily student submissions</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-[300px] w-full">
@@ -57,6 +70,7 @@ export default function ExamCharts({ userId }: Props) {
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `${value}`}
+                  allowDecimals={false}
                 />
                 <Tooltip
                   cursor={{ fill: 'transparent' }}
@@ -81,7 +95,7 @@ export default function ExamCharts({ userId }: Props) {
 
       <Card className="border-none shadow-lg bg-white dark:bg-slate-800">
         <CardHeader>
-          <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">Performance Trend</CardTitle>
+          <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">Performance Trend (Last 7 Days)</CardTitle>
           <CardDescription className="text-slate-500 dark:text-slate-400">Average student scores</CardDescription>
         </CardHeader>
         <CardContent>
@@ -108,6 +122,7 @@ export default function ExamCharts({ userId }: Props) {
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `${value}%`}
+                  domain={[0, 100]}
                 />
                 <Tooltip
                   contentStyle={{
@@ -116,6 +131,7 @@ export default function ExamCharts({ userId }: Props) {
                     border: 'none',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                   }}
+                  formatter={(value: any) => [`${value}%`, 'Avg Score']}
                 />
                 <Area
                   type="monotone"
