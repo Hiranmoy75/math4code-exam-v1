@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { checkPaymentStatus } from "@/lib/phonepe";
 
 // CORS headers for mobile app
@@ -27,30 +27,13 @@ export async function POST(req: Request) {
 
         console.log("🔍 Verifying Payment for Transaction ID:", transactionId);
 
-        // Check for Authorization header (for mobile app)
-        const authHeader = req.headers.get('Authorization');
-        let supabase;
-
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            // Mobile app request with Bearer token
-            const token = authHeader.split(' ')[1];
-            const { createClient: createSupabaseClient } = require('@supabase/supabase-js');
-
-            supabase = createSupabaseClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                {
-                    global: {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                    },
-                }
-            );
-        } else {
-            // Web app request with cookies
-            supabase = await createClient();
-        }
+        // Initialize Supabase Admin Client (Service Role)
+        // We use service role to ensure we can update payment status and enroll users
+        // regardless of RLS policies for the current user.
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
         // 1. Call PhonePe Status API
         const statusResponse = await checkPaymentStatus(transactionId);

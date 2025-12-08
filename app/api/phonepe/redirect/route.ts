@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { checkPaymentStatus } from "@/lib/phonepe";
 
 // Shared logic for processing redirect (POST or GET)
 async function processRedirect(req: Request, transactionId: string) {
   try {
-    const supabase = await createClient();
+    // Use Service Role to allow updating status and enrolling users without authentication
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     // Check payment status from PhonePe
     const statusResponse = await checkPaymentStatus(transactionId);
     const state = statusResponse.state;
