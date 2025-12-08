@@ -70,14 +70,12 @@ async function processRedirect(req: Request, transactionId: string) {
             progress: 0
           });
           if (enrollError) console.error("❌ Redirect Enrollment Insert Failed:", enrollError);
-          else console.log("✅ Course enrollment created");
         } else {
           const { error: updateError } = await supabase.from("enrollments").update({
             status: "active",
             payment_id: payment?.id
           }).eq("id", existingEnrollment.id);
           if (updateError) console.error("❌ Redirect Enrollment Update Failed:", updateError);
-          else console.log("✅ Course enrollment activated");
         }
       } else if (seriesId) {
         // Test Series Enrollment
@@ -112,10 +110,9 @@ async function processRedirect(req: Request, transactionId: string) {
 }
 
 export async function POST(req: Request) {
-  console.log("Redirect POST received");
   try {
     const formData = await req.formData();
-    console.log("Redirect POST FormData:", Object.fromEntries(formData));
+    // console.log("Redirect POST FormData:", Object.fromEntries(formData));
     const transactionId = (formData.get("transactionId") || formData.get("merchantOrderId") || formData.get("merchantTransactionId") || formData.get("code")) as string;
 
     // PhonePe sometimes sends 'code' and 'merchantId' but maybe 'transactionId' is named differently or missing?

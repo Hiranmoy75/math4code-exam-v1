@@ -63,7 +63,8 @@ export default function Header({
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/auth/login");
+    // Force a hard alignment to the login page to clear all React/Query state
+    window.location.href = "/auth/login";
   };
 
   const handleNotificationClick = (id: string, isRead: boolean) => {

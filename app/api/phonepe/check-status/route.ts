@@ -28,8 +28,6 @@ export async function POST(req: Request) {
         }
 
 
-        console.log("🔍 Verifying Payment for Transaction ID:", transactionId);
-
         let supabase;
         try {
             // Try to use Admin Client for RLS bypass
@@ -41,8 +39,6 @@ export async function POST(req: Request) {
 
         // 1. Call PhonePe Status API
         const statusResponse = await checkPaymentStatus(transactionId);
-
-        console.log("📦 Full PhonePe Response:", JSON.stringify(statusResponse, null, 2));
 
         // 2. Determine Status
         let status = "pending";
@@ -151,8 +147,6 @@ export async function POST(req: Request) {
                         console.error("❌ Enrollment Insertion Failed:", enrollError);
                         // Don't throw here to ensure we still return the payment success status
                         // but we should probably alert or return a warning in the response
-                    } else {
-                        console.log("✅ Course enrollment created");
                     }
                 } else {
                     // Update existing enrollment to active
@@ -163,8 +157,6 @@ export async function POST(req: Request) {
 
                     if (updateError) {
                         console.error("❌ Enrollment Activation Failed:", updateError);
-                    } else {
-                        console.log("✅ Course enrollment activated");
                     }
                 }
             }

@@ -54,6 +54,37 @@ export default function LoginPage() {
     }
   };
 
+  React.useEffect(() => {
+    // Check for error in URL params (e.g. returned from callback)
+    const params = new URLSearchParams(window.location.search);
+    const errorMsg = params.get('error');
+    if (errorMsg) {
+      setError(decodeURIComponent(errorMsg));
+    }
+
+    // Optional: Clear any stale local storage or state if needed on login page load
+    // This helps prevent 'auto-login' loops if the auth state is messy
+  }, []);
+
+
+  const handleGoogleLogin = async () => {
+    const supabase = createClient();
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+      // Note: No redirection here as it's handled by OAuth
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "An error occurred with Google Login");
+      setIsLoading(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -162,17 +193,27 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-4">
-            <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-all">
+            <button
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              type="button"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
               <FaGoogle className="h-4 w-4" />
               <span className="text-sm font-medium">Google</span>
             </button>
-            <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-all">
+            <button
+              disabled={isLoading}
+              type="button"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-slate-300 transition-all disabled:opacity-70 disabled:cursor-not-allowed hidden"
+            >
               <FaGithub className="h-4 w-4" />
               <span className="text-sm font-medium">GitHub</span>
             </button>
           </div>
         </div>
       </div>
+
 
       <p className="mt-8 text-center text-sm text-slate-500">
         Don&apos;t have an account?{" "}

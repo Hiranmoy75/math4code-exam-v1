@@ -36,8 +36,14 @@ export function useStudentStats(userId: string | undefined) {
                     return { totalExams: 0, averageScore: 0, totalTimeSpent: 0, rank: 0 };
                 }
 
-                console.error("Error fetching student stats:", error.message);
-                throw error;
+                console.warn("Error fetching student stats (returning defaults):", error.message);
+                // Return defaults instead of throwing to prevent UI crash for new users
+                return { totalExams: 0, averageScore: 0, totalTimeSpent: 0, rank: 0 };
+            }
+
+            // If data is null (fresh user), return defaults
+            if (!data) {
+                return { totalExams: 0, averageScore: 0, totalTimeSpent: 0, rank: 0 };
             }
 
             return data as unknown as StudentStats;

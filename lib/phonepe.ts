@@ -19,12 +19,13 @@ if (!MERCHANT_ID || !CLIENT_SECRET) {
   logger.error("❌ PhonePe Error: Missing Required Environment Variables (MERCHANT_ID or CLIENT_SECRET)");
 }
 
-logger.log("💳 Initializing PhonePe Client...");
-logger.log("   - Env Var:", process.env.PHONEPE_ENV);
-logger.log("   - Resolved Env:", isProd ? "PRODUCTION" : "SANDBOX");
-logger.log("   - Merchant ID:", MERCHANT_ID);
-logger.log("   - Client ID:", CLIENT_ID);
-logger.log("   - Domain:", DOMAIN);
+
+// logger.log("💳 Initializing PhonePe Client...");
+// logger.log("   - Env Var:", process.env.PHONEPE_ENV);
+// logger.log("   - Resolved Env:", isProd ? "PRODUCTION" : "SANDBOX");
+// logger.log("   - Merchant ID:", MERCHANT_ID);
+// logger.log("   - Client ID:", CLIENT_ID);
+// logger.log("   - Domain:", DOMAIN);
 
 // Initialize PhonePe SDK Client
 const client = StandardCheckoutClient.getInstance(
@@ -61,11 +62,11 @@ export async function createPayment(merchantTransactionId: string, amount: numbe
     (request as any).merchantTransactionId = merchantTransactionId;
     (request as any).callbackUrl = callbackUrl;
 
-    logger.log(`🚀 Initiating Payment (SDK) for Order: ${merchantTransactionId}, Amount: ${amount}`);
+    // logger.log(`🚀 Initiating Payment (SDK) for Order: ${merchantTransactionId}, Amount: ${amount}`);
 
     const response = await client.pay(request);
 
-    logger.log("✅ Payment Initiated Successfully. Redirect URL:", response.redirectUrl);
+    // logger.log("✅ Payment Initiated Successfully. Redirect URL:", response.redirectUrl);
 
     return {
       success: true,
@@ -119,7 +120,7 @@ export async function checkPaymentStatus(merchantTransactionId: string) {
     });
 
     const data = await response.json();
-    logger.log("   ✅ Status Response:", JSON.stringify(data, null, 2));
+    // logger.log("   ✅ Status Response:", JSON.stringify(data, null, 2));
 
     return data;
 
@@ -146,7 +147,7 @@ async function getOAuthToken() {
     params.append('client_secret', CLIENT_SECRET || "");
     params.append('client_version', (CLIENT_VERSION || 1).toString());
 
-    logger.log(`      Getting Token from: ${url}`);
+    // logger.log(`      Getting Token from: ${url}`);
 
     const response = await fetch(url, {
       method: "POST",
