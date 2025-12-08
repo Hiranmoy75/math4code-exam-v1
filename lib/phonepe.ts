@@ -171,3 +171,67 @@ async function getOAuthToken() {
     return null;
   }
 }
+
+/**
+ * Initiate Refund
+ * NOTE: Using standard checksum-based API for backend refund operations.
+ */
+export async function refundTransaction(
+  originalTransactionId: string,
+  amount: number,
+  userId: string
+) {
+  try {
+    const newRefundTxnId = `RF${Date.now()}`;
+
+    const data = {
+      merchantId: MERCHANT_ID,
+      merchantUserId: userId,
+      originalTransactionId: originalTransactionId,
+      merchantTransactionId: newRefundTxnId,
+      amount: amount * 100, // in paise
+      callbackUrl: `${DOMAIN}/api/phonepe/callback`
+    };
+
+    const payload = JSON.stringify(data);
+    const payloadBase64 = Buffer.from(payload).toString('base64');
+
+    const saltKey = CLIENT_SECRET || "";
+    const saltIndex = CLIENT_VERSION || 1;
+
+    const apiPath = "/pg/v1/refund";
+    const stringToHash = payloadBase64 + apiPath + saltKey;
+    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+    const xVerify = `${sha256}###${saltIndex}`;
+
+    const pgHost = isProd
+      ? 'https://api.phonepe.com/apis/pg'
+      : 'https://api-preprod.phonepe.com/apis/pg-sandbox';
+
+    const url = `${pgHost}${apiPath}`;
+
+    logger.log(`💸 Initiating Refund for: ${originalTransactionId}, Amount: ${amount}`);
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-VERIFY": xVerify
+      },
+      body: JSON.stringify({ request: payloadBase64 })
+    });
+
+    const resData = await response.json();
+    logger.log("   ✅ Refund Response:", JSON.stringify(resData, null, 2));
+
+    if (resData.success) {
+      return { success: true, data: resData.data, message: "Refund Initiated Successfully" };
+    } else {
+      return { success: false, message: resData.message || "Refund Failed" };
+    }
+
+  } catch (error: any) {
+    logger.error("   ❌ Refund Error:", error.message);
+    return { success: false, message: error.message };
+  }
+}

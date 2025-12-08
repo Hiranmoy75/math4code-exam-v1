@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+// import { createClient } from "@supabase/supabase-js"; // Removed manual init
+import { createClient } from "@/lib/supabase/server"; // For fallback
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPaymentStatus } from "@/lib/phonepe";
 
 // Shared logic for processing redirect (POST or GET)
 async function processRedirect(req: Request, transactionId: string) {
   try {
-    // Use Service Role to allow updating status and enrolling users without authentication
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    let supabase;
+    try {
+      // Try to use Admin Client for RLS bypass
+      supabase = createAdminClient();
+    } catch (e) {
+      console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY missing. Falling back to standard client (Enrollment may fail due to RLS).");
+      supabase = await createClient();
+    }
     // Check payment status from PhonePe
     const statusResponse = await checkPaymentStatus(transactionId);
     const state = statusResponse.state;
@@ -56,22 +61,23 @@ async function processRedirect(req: Request, transactionId: string) {
           .single();
 
         if (!existingEnrollment) {
-          await supabase.from("enrollments").insert({
+          const { error: enrollError } = await supabase.from("enrollments").insert({
             user_id: userId,
             course_id: courseId,
             status: "active",
             payment_id: payment?.id,
             enrolled_at: new Date().toISOString(),
-            progress: 0,
-            completed: false
+            progress: 0
           });
-          console.log("✅ Course enrollment created");
+          if (enrollError) console.error("❌ Redirect Enrollment Insert Failed:", enrollError);
+          else console.log("✅ Course enrollment created");
         } else {
-          await supabase.from("enrollments").update({
+          const { error: updateError } = await supabase.from("enrollments").update({
             status: "active",
             payment_id: payment?.id
           }).eq("id", existingEnrollment.id);
-          console.log("✅ Course enrollment activated");
+          if (updateError) console.error("❌ Redirect Enrollment Update Failed:", updateError);
+          else console.log("✅ Course enrollment activated");
         }
       } else if (seriesId) {
         // Test Series Enrollment

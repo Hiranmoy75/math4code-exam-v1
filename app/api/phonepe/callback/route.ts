@@ -17,6 +17,11 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: true }); // Acknowledge to stop retries
         }
 
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            console.error("❌ CRITICAL: Missing SUPABASE_SERVICE_ROLE_KEY in callback.");
+            return NextResponse.json({ error: "Configuration Error" }, { status: 500 });
+        }
+
         // 2. Update Payment Status
         // Use Service Role to allow updating status and enrolling users without authentication
         const supabase = createClient(
@@ -99,13 +104,14 @@ export async function POST(req: Request) {
 
                 if (!existingEnrollment) {
                     // Create new enrollment
-                    await supabase.from("enrollments").insert({
+                    const { error: enrollError } = await supabase.from("enrollments").insert({
                         user_id: payment.user_id,
                         course_id: payment.course_id,
                         status: "active",
                         payment_id: payment.id
                     });
-                    console.log("✅ Course Enrollment Created (Callback)");
+                    if (enrollError) console.error("❌ Callback Enrollment Insert Failed:", enrollError);
+                    else console.log("✅ Course Enrollment Created (Callback)");
                 } else {
                     // Update existing enrollment
                     await supabase

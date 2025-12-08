@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+// import { createClient } from "@supabase/supabase-js"; // Remove
+import { createClient } from "@/lib/supabase/server"; // For fallback
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPaymentStatus } from "@/lib/phonepe";
 
 // CORS headers for mobile app
@@ -25,15 +27,17 @@ export async function POST(req: Request) {
             );
         }
 
+
         console.log("🔍 Verifying Payment for Transaction ID:", transactionId);
 
-        // Initialize Supabase Admin Client (Service Role)
-        // We use service role to ensure we can update payment status and enroll users
-        // regardless of RLS policies for the current user.
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        let supabase;
+        try {
+            // Try to use Admin Client for RLS bypass
+            supabase = createAdminClient();
+        } catch (e) {
+            console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY missing. Falling back to standard client.");
+            supabase = await createClient();
+        }
 
         // 1. Call PhonePe Status API
         const statusResponse = await checkPaymentStatus(transactionId);
@@ -134,23 +138,34 @@ export async function POST(req: Request) {
                     .single();
 
                 if (!existingEnrollment) {
-                    await supabase.from("enrollments").insert({
+                    const { error: enrollError } = await supabase.from("enrollments").insert({
                         user_id: payment.user_id,
                         course_id: payment.course_id,
                         status: "active",
                         payment_id: payment.id,
                         enrolled_at: new Date().toISOString(),
-                        progress: 0,
-                        completed: false
+                        progress: 0
                     });
-                    console.log("✅ Course enrollment created");
+
+                    if (enrollError) {
+                        console.error("❌ Enrollment Insertion Failed:", enrollError);
+                        // Don't throw here to ensure we still return the payment success status
+                        // but we should probably alert or return a warning in the response
+                    } else {
+                        console.log("✅ Course enrollment created");
+                    }
                 } else {
                     // Update existing enrollment to active
-                    await supabase.from("enrollments").update({
+                    const { error: updateError } = await supabase.from("enrollments").update({
                         status: "active",
                         payment_id: payment.id
                     }).eq("id", existingEnrollment.id);
-                    console.log("✅ Course enrollment activated");
+
+                    if (updateError) {
+                        console.error("❌ Enrollment Activation Failed:", updateError);
+                    } else {
+                        console.log("✅ Course enrollment activated");
+                    }
                 }
             }
         }

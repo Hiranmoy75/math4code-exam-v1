@@ -132,20 +132,21 @@ function CoursePaymentsTable() {
                             <TableHead>Date</TableHead>
                             <TableHead>Payment Status</TableHead>
                             <TableHead>Access Status</TableHead>
+                            <TableHead>Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {payments.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center">
+                                <TableCell colSpan={8} className="h-24 text-center">
                                     No payments found.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             payments.map((payment) => {
                                 const hasAccess = payment.enrollments && payment.enrollments.length > 0;
-                                // Check if any enrollment is active
                                 const isActive = payment.enrollments?.some(e => e.status === 'active');
+                                const isRefunded = payment.status === 'refunded';
 
                                 return (
                                     <TableRow key={payment.id}>
@@ -185,20 +186,27 @@ function CoursePaymentsTable() {
                                             <Badge
                                                 variant={
                                                     payment.status === "success"
-                                                        ? "default" // primary color usually indicates success in some themes, or use custom class
-                                                        : payment.status === "pending"
+                                                        ? "default"
+                                                        : payment.status === "refunded"
                                                             ? "outline"
-                                                            : "destructive"
+                                                            : payment.status === "pending"
+                                                                ? "outline"
+                                                                : "destructive"
                                                 }
                                                 className={
-                                                    payment.status === "success" ? "bg-green-500 hover:bg-green-600" : ""
+                                                    payment.status === "success" ? "bg-green-500 hover:bg-green-600" :
+                                                        payment.status === "refunded" ? "border-orange-500 text-orange-500" : ""
                                                 }
                                             >
                                                 {payment.status}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            {hasAccess ? (
+                                            {isRefunded ? (
+                                                <Badge variant="outline" className="border-orange-500 text-orange-500 gap-1">
+                                                    <XCircle className="h-3 w-3" /> Refunded
+                                                </Badge>
+                                            ) : hasAccess ? (
                                                 isActive ? (
                                                     <Badge variant="outline" className="border-green-500 text-green-500 gap-1">
                                                         <CheckCircle2 className="h-3 w-3" /> Active
@@ -212,6 +220,17 @@ function CoursePaymentsTable() {
                                                 <Badge variant="outline" className="border-red-500 text-red-500 gap-1">
                                                     <XCircle className="h-3 w-3" /> Revoked/Missing
                                                 </Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {(payment.status === "success" || payment.status === "completed") && (
+                                                <RefundButton
+                                                    transactionId={payment.transaction_id}
+                                                    amount={payment.amount}
+                                                    userId={payment.user_id}
+                                                    paymentId={payment.id}
+                                                    type="course"
+                                                />
                                             )}
                                         </TableCell>
                                     </TableRow>
@@ -318,6 +337,7 @@ function TestSeriesPaymentsTable() {
                             <TableHead>Date</TableHead>
                             <TableHead>Payment Status</TableHead>
                             <TableHead>Access Status</TableHead>
+                            <TableHead>Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -395,6 +415,17 @@ function TestSeriesPaymentsTable() {
                                                 </Badge>
                                             )}
                                         </TableCell>
+                                        <TableCell>
+                                            {(payment.status === "success" || payment.status === "completed" || payment.status === "captured") && (
+                                                <RefundButton
+                                                    transactionId={payment.phonepe_transaction_id || ""}
+                                                    amount={payment.amount}
+                                                    userId={payment.user_id}
+                                                    paymentId={payment.id}
+                                                    type="test-series"
+                                                />
+                                            )}
+                                        </TableCell>
                                     </TableRow>
                                 );
                             })
@@ -426,5 +457,44 @@ function TestSeriesPaymentsTable() {
                 </Button>
             </div>
         </div>
+    );
+}
+
+function RefundButton({ transactionId, amount, userId, paymentId, type }: { transactionId: string, amount: number, userId: string, paymentId: string, type: 'course' | 'test-series' }) {
+    const [loading, setLoading] = useState(false);
+
+    const handleRefund = async () => {
+        if (!confirm(`Are you sure you want to refund ₹${amount} for this transaction? This action cannot be undone.`)) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const response = await fetch('/api/admin/payments/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transactionId, amount, userId, paymentId, type })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                toast.success('Refund initiated successfully!');
+                // Ideally refresh list here, for now page reload or revalidation
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                toast.error(result.error || 'Refund failed');
+            }
+        } catch (error) {
+            toast.error('Something went wrong');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleRefund} disabled={loading}>
+            {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Refund"}
+        </Button>
     );
 }
