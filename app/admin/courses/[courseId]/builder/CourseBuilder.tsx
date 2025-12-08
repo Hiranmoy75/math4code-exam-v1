@@ -50,6 +50,8 @@ export default function CourseBuilder({ course, initialModules }: CourseBuilderP
         addLesson,
         updateLesson,
         deleteLesson,
+        reorderModules,
+        reorderLessons,
         isAddingModule
     } = useCourseModules(course.id, initialModules);
 
@@ -303,6 +305,8 @@ export default function CourseBuilder({ course, initialModules }: CourseBuilderP
                             selectedLesson={selectedLesson}
                             setSelectedLesson={setSelectedLesson}
                             addLesson={addLesson}
+                            reorderModules={reorderModules}
+                            reorderLessons={reorderLessons}
                         />
                     </div>
 

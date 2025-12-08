@@ -136,7 +136,15 @@ export function LessonEditor({ lesson, course, onUpdate, onDelete }: LessonEdito
                         placeholder="Lesson Title"
                     />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <Switch
+                            id="free-preview-toggle"
+                            checked={lesson.is_free_preview}
+                            onCheckedChange={(checked) => onUpdate({ is_free_preview: checked })}
+                        />
+                        <Label htmlFor="free-preview-toggle" className="text-sm font-medium dark:text-slate-300 whitespace-nowrap">Free Preview</Label>
+                    </div>
                     <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="dark:bg-transparent dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-red-400">
                         <Trash className="h-4 w-4 mr-2" />
                         Delete

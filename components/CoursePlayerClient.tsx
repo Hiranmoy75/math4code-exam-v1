@@ -34,7 +34,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { PlayCircle, FileText, ChevronLeft, ChevronRight, HelpCircle, Menu, X, PanelLeftClose, PanelLeft, CheckCircle, BookOpen, Video, Share2, User, Book, Users } from "lucide-react"
+import { PlayCircle, FileText, ChevronLeft, ChevronRight, HelpCircle, Menu, X, PanelLeftClose, PanelLeft, CheckCircle, BookOpen, Video, Share2, User, Book, Users, Lock } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { AnimatePresence, motion } from "framer-motion"
@@ -49,6 +49,7 @@ interface CoursePlayerClientProps {
     courseId: string
     user: any
     profile: any
+    isEnrolled: boolean
     children: React.ReactNode
 }
 
@@ -56,6 +57,7 @@ export function CoursePlayerClient({
     courseId,
     user,
     profile,
+    isEnrolled,
     children
 }: CoursePlayerClientProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -185,12 +187,34 @@ export function CoursePlayerClient({
                                             {module.lessons.map((lesson: any) => {
                                                 const isActive = currentLesson?.id === lesson.id;
                                                 const isCompleted = isLessonCompleted(lesson.id);
+                                                const isLocked = !isEnrolled && !lesson.is_free_preview;
 
                                                 let Icon = BookOpen;
                                                 let typeLabel = "Reading";
                                                 if (lesson.content_type === "video") { Icon = Video; typeLabel = "Video"; }
                                                 if (lesson.content_type === "quiz") { Icon = HelpCircle; typeLabel = "Quiz"; }
                                                 if (lesson.content_type === "pdf") { Icon = FileText; typeLabel = "PDF"; }
+
+                                                if (isLocked) {
+                                                    return (
+                                                        <div
+                                                            key={lesson.id}
+                                                            className={cn(
+                                                                "group flex items-start gap-3 py-3 px-4 text-sm transition-all rounded-lg border-l-4 border-transparent text-muted-foreground/50 cursor-not-allowed bg-muted/10",
+                                                            )}
+                                                        >
+                                                            <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-medium line-clamp-2 leading-tight">
+                                                                    {lesson.title}
+                                                                </div>
+                                                                <div className="text-xs mt-1 text-muted-foreground/40">
+                                                                    {typeLabel} • Locked
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                }
 
                                                 return (
                                                     <Link
@@ -212,7 +236,7 @@ export function CoursePlayerClient({
                                                                 {lesson.title}
                                                             </div>
                                                             <div className={cn("text-xs mt-1", isActive ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-muted-foreground/60")}>
-                                                                {typeLabel}
+                                                                {typeLabel} {lesson.is_free_preview && !isEnrolled && "• Free Preview"}
                                                             </div>
                                                         </div>
                                                         {isCompleted && (
@@ -280,12 +304,34 @@ export function CoursePlayerClient({
                                                     {module.lessons.map((lesson: any) => {
                                                         const isActive = currentLesson?.id === lesson.id;
                                                         const isCompleted = isLessonCompleted(lesson.id);
+                                                        const isLocked = !isEnrolled && !lesson.is_free_preview;
 
                                                         let Icon = BookOpen;
                                                         let typeLabel = "Reading";
                                                         if (lesson.content_type === "video") { Icon = Video; typeLabel = "Video"; }
                                                         if (lesson.content_type === "quiz") { Icon = HelpCircle; typeLabel = "Quiz"; }
                                                         if (lesson.content_type === "pdf") { Icon = FileText; typeLabel = "PDF"; }
+
+                                                        if (isLocked) {
+                                                            return (
+                                                                <div
+                                                                    key={lesson.id}
+                                                                    className={cn(
+                                                                        "group flex items-start gap-3 py-3 px-4 text-sm transition-all rounded-lg border-l-4 border-transparent text-muted-foreground/50 cursor-not-allowed bg-muted/10",
+                                                                    )}
+                                                                >
+                                                                    <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="font-medium line-clamp-2 leading-tight">
+                                                                            {lesson.title}
+                                                                        </div>
+                                                                        <div className="text-xs mt-1 text-muted-foreground/40">
+                                                                            {typeLabel} • Locked
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        }
 
                                                         return (
                                                             <Link
@@ -308,7 +354,7 @@ export function CoursePlayerClient({
                                                                         {lesson.title}
                                                                     </div>
                                                                     <div className={cn("text-xs mt-1", isActive ? "text-emerald-600/80 dark:text-emerald-400/80" : "text-muted-foreground/60")}>
-                                                                        {typeLabel}
+                                                                        {typeLabel} {lesson.is_free_preview && !isEnrolled && "• Free Preview"}
                                                                     </div>
                                                                 </div>
                                                                 {isCompleted && (

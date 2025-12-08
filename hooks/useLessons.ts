@@ -29,38 +29,46 @@ export const useLessons = (courseId: string) => {
     return useQuery({
         queryKey: ['course-structure', courseId],
         queryFn: async ({ signal }) => { // 1. signal support
+            // OPTIMIZATION: Use RPC for single round-trip fetch
             const { data, error } = await supabase
-                .from('modules')
-                .select(`
-          id, 
-          title, 
-          module_order,
-          lessons (
-            id, 
-            title, 
-            module_id, 
-            content_type, 
-            video_duration, 
-            is_free_preview, 
-            lesson_order, 
-            is_live,
-            created_at, 
-            updated_at
-          )
-        `)
-                .eq('course_id', courseId)
-                .order('module_order', { ascending: true })
-                .abortSignal(signal); // 2. Attach signal
+                .rpc('get_course_structure', { target_course_id: courseId });
 
-            if (error) throw error;
+            if (error) {
+                // Fallback to standard query if RPC fails (e.g., function not created yet)
+                console.warn("RPC failed, falling back to standard query:", error);
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from('modules')
+                    .select(`
+                        id, 
+                        title, 
+                        module_order,
+                        lessons (
+                            id, 
+                            title, 
+                            module_id, 
+                            content_type, 
+                            video_duration, 
+                            is_free_preview, 
+                            lesson_order, 
+                            is_live,
+                            created_at, 
+                            updated_at
+                        )
+                    `)
+                    .eq('course_id', courseId)
+                    .order('module_order', { ascending: true })
+                    .abortSignal(signal);
 
-            // Sort lessons client-side
-            const sortedModules = data?.map((module: any) => ({
-                ...module,
-                lessons: (module.lessons || []).sort((a: any, b: any) => a.lesson_order - b.lesson_order)
-            })) as ModuleStructure[];
+                if (fallbackError) throw fallbackError;
 
-            return sortedModules;
+                return fallbackData?.map((module: any) => ({
+                    ...module,
+                    lessons: (module.lessons || []).sort((a: any, b: any) => a.lesson_order - b.lesson_order)
+                })) as ModuleStructure[];
+            }
+
+            // RPC returns presorted data via SQL ORDER BY
+            return data as ModuleStructure[];
         },
         staleTime: 1000 * 60 * 5, // 5 minutes
         gcTime: 1000 * 60 * 30,   // 30 minutes

@@ -236,3 +236,52 @@ BEGIN
     RETURN v_chart_data;
 END;
 $$;
+
+-- 5. NEW: Optimized Function for Course Structure (Modules & Lessons)
+-- This reduces multiple DB round trips and payload size for fetching course content.
+-- Critical for scaling to 10000+ students.
+CREATE OR REPLACE FUNCTION public.get_course_structure(target_course_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_result jsonb;
+BEGIN
+    SELECT json_agg(
+        json_build_object(
+            'id', m.id,
+            'title', m.title,
+            'module_order', m.module_order,
+            'lessons', (
+                SELECT COALESCE(json_agg(
+                    json_build_object(
+                        'id', l.id,
+                        'title', l.title,
+                        'content_type', l.content_type,
+                        'is_free_preview', COALESCE(l.is_free_preview, false),
+                        'lesson_order', l.lesson_order,
+                        'duration', l.duration,
+                        'video_provider', l.video_provider,
+                        'is_live', l.is_live,
+                        'meeting_date', l.meeting_date
+                    ) ORDER BY l.lesson_order ASC
+                ), '[]'::json)
+                FROM public.lessons l
+                WHERE l.module_id = m.id
+            )
+        ) ORDER BY m.module_order ASC
+    ) INTO v_result
+    FROM public.modules m
+    WHERE m.course_id = target_course_id;
+
+    RETURN COALESCE(v_result, '[]'::jsonb);
+END;
+$$;
+
+-- PERFORMANCE INDEXES
+-- Essential for fast lookups when 10000+ students are accessing data simultaneously.
+CREATE INDEX IF NOT EXISTS idx_modules_course_id ON public.modules(course_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_module_id ON public.lessons(module_id);
+CREATE INDEX IF NOT EXISTS idx_lessons_is_free_preview ON public.lessons(is_free_preview);
+CREATE INDEX IF NOT EXISTS idx_enrollments_user_course ON public.enrollments(user_id, course_id, status);

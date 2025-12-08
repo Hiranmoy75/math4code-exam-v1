@@ -49,9 +49,7 @@ export default async function CoursePlayerPage({
         .eq("status", "active")
         .single();
 
-    if (!enrollment) {
-        redirect(`/courses/${courseId}`);
-    }
+    const isEnrolled = !!enrollment;
 
     // Fetch user profile (Server Side for Auth Context)
     const { data: profile } = await supabase
@@ -76,20 +74,34 @@ export default async function CoursePlayerPage({
     queryClient.setQueryData(['course', courseId], course);
 
     // 2. Fetch Modules & Lessons
-    const { data: modulesData } = await supabase
-        .from("modules")
-        .select(`
-        *,
-        lessons (*)
-        `)
-        .eq("course_id", courseId)
-        .order("module_order", { ascending: true });
+    // 2. Fetch Modules & Lessons (Optimized RPC)
+    // 2. Fetch Modules & Lessons (Optimized RPC)
+    let { data: modulesData, error: modulesError } = await supabase
+        .rpc('get_course_structure', { target_course_id: courseId });
 
-    // Client-side Sort Logic Duplication for consistency
-    const modulesWithSortedLessons = modulesData?.map((module: any) => ({
+    if (modulesError) {
+        console.warn("RPC fetch failed, falling back to standard query:", modulesError);
+        const { data: fallbackData } = await supabase
+            .from("modules")
+            .select(`
+                *,
+                lessons (*)
+            `)
+            .eq("course_id", courseId)
+            .order("module_order", { ascending: true });
+
+        // Manually sort nested lessons for fallback
+        modulesData = fallbackData?.map((m: any) => ({
+            ...m,
+            lessons: (m.lessons || []).sort((a: any, b: any) => a.lesson_order - b.lesson_order)
+        }));
+    }
+
+    // RPC returns presorted data, but we keep the map structure for compatibility
+    const modulesWithSortedLessons = (modulesData || []).map((module: any) => ({
         ...module,
-        lessons: (module.lessons || []).sort((a: any, b: any) => a.lesson_order - b.lesson_order)
-    })) || [];
+        lessons: module.lessons || []
+    }));
 
     // Seed Cache
     queryClient.setQueryData(['course-structure', courseId], modulesWithSortedLessons);
@@ -129,12 +141,36 @@ export default async function CoursePlayerPage({
         }
     } else if (allLessons.length > 0) {
         // Smart Navigation: Find first incomplete lesson
-        const firstIncomplete = allLessons.find((l: any) => !completedLessonIds.has(l.id));
-        currentLesson = firstIncomplete || allLessons[0];
+        // IF NOT ENROLLED: Find first FREE lesson
+        if (!isEnrolled) {
+            const firstFree = allLessons.find((l: any) => l.is_free_preview);
+            if (firstFree) {
+                currentLesson = firstFree;
+            } else {
+                // No free lessons available, redirection logic handles below
+                currentLesson = null;
+            }
+        } else {
+            const firstIncomplete = allLessons.find((l: any) => !completedLessonIds.has(l.id));
+            currentLesson = firstIncomplete || allLessons[0];
+        }
 
-        const currentIndex = allLessons.findIndex((l: any) => l.id === currentLesson.id);
-        prevLessonId = currentIndex > 0 ? allLessons[currentIndex - 1].id : null;
-        nextLessonId = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1].id : null;
+        if (currentLesson) {
+            const currentIndex = allLessons.findIndex((l: any) => l.id === currentLesson.id);
+            prevLessonId = currentIndex > 0 ? allLessons[currentIndex - 1].id : null;
+            nextLessonId = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1].id : null;
+        }
+    }
+
+    // ACCESS CONTROL CHECK (FINAL GUARD)
+    if (!currentLesson) {
+        // Could not determine a lesson (e.g. no free lessons and not enrolled, or course empty)
+        redirect(`/courses/${courseId}`);
+    }
+
+    if (!isEnrolled && !currentLesson.is_free_preview) {
+        // User trying to access a paid lesson without enrollment
+        redirect(`/courses/${courseId}`);
     }
 
 
@@ -192,6 +228,7 @@ export default async function CoursePlayerPage({
                     courseId={courseId}
                     user={user}
                     profile={profile}
+                    isEnrolled={isEnrolled}
                 >
                     <LessonTracker
                         key={currentLesson?.id}

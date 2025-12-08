@@ -36,15 +36,31 @@ export default async function CourseLandingPage({
         redirect("/courses");
     }
 
-    // Fetch modules and lessons
-    const { data: modules } = await supabase
-        .from("modules")
-        .select(`
-      *,
-      lessons (*)
-    `)
-        .eq("course_id", courseId)
-        .order("module_order", { ascending: true });
+    // Fetch modules and lessons (Optimized RPC)
+    let { data: modulesData, error: modulesError } = await supabase
+        .rpc('get_course_structure', { target_course_id: courseId });
+
+    if (modulesError) {
+        console.warn("RPC fetch failed, falling back to standard query:", modulesError);
+        const { data: fallbackData } = await supabase
+            .from("modules")
+            .select(`
+                *,
+                lessons (*)
+            `)
+            .eq("course_id", courseId)
+            .order("module_order", { ascending: true });
+
+        // Manually sort since standard query doesn't sort nested by default in all cases or if needed
+        if (fallbackData) {
+            modulesData = fallbackData.map((m: any) => ({
+                ...m,
+                lessons: (m.lessons || []).sort((a: any, b: any) => a.lesson_order - b.lesson_order)
+            }));
+        } else {
+            modulesData = [];
+        }
+    }
 
     // Check enrollment
     let isEnrolled = false;
@@ -58,11 +74,11 @@ export default async function CourseLandingPage({
         isEnrolled = !!enrollment;
     }
 
-    // Sort lessons
-    const modulesWithSortedLessons = modules?.map((module) => ({
+    // RPC returns presorted data via SQL
+    const modulesWithSortedLessons = (modulesData || []).map((module: any) => ({
         ...module,
-        lessons: module.lessons?.sort((a: any, b: any) => a.lesson_order - b.lesson_order) || [],
-    })) || [];
+        lessons: module.lessons || []
+    }));
 
     return (
         <div className="min-h-screen bg-background font-sans">
@@ -101,7 +117,7 @@ export default async function CourseLandingPage({
                                     <div className="h-10 w-px bg-slate-200" />
                                     <div className="flex items-center gap-2 text-slate-600">
                                         <FileText className="h-5 w-5 text-indigo-500" />
-                                        <span className="font-medium">{modulesWithSortedLessons.reduce((acc, m) => acc + m.lessons.length, 0)} Lessons</span>
+                                        <span className="font-medium">{modulesWithSortedLessons.reduce((acc: any, m: any) => acc + m.lessons.length, 0)} Lessons</span>
                                     </div>
                                 </div>
                             </div>
@@ -127,7 +143,7 @@ export default async function CourseLandingPage({
                                     Course Curriculum
                                 </h2>
                                 <Accordion type="single" collapsible className="w-full space-y-4">
-                                    {modulesWithSortedLessons.map((module) => (
+                                    {modulesWithSortedLessons.map((module: any) => (
                                         <AccordionItem key={module.id} value={module.id} className="border rounded-lg px-2 overflow-hidden data-[state=open]:bg-muted/30">
                                             <AccordionTrigger className="px-4 py-4 hover:no-underline hover:bg-muted/50 rounded-md transition-colors">
                                                 <div className="flex flex-col items-start text-left gap-1">
@@ -141,32 +157,54 @@ export default async function CourseLandingPage({
                                             </AccordionTrigger>
                                             <AccordionContent className="pt-2 pb-4 px-4">
                                                 <div className="space-y-2">
-                                                    {module.lessons.map((lesson: any) => (
-                                                        <div
-                                                            key={lesson.id}
-                                                            className="flex items-center justify-between p-3 rounded-md hover:bg-background border border-transparent hover:border-border transition-all group"
-                                                        >
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`p-2 rounded-full ${lesson.content_type === "video" ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600"}`}>
-                                                                    {lesson.content_type === "video" ? (
-                                                                        <PlayCircle className="h-4 w-4" />
+                                                    {module.lessons.map((lesson: any) => {
+                                                        const isAccessible = isEnrolled || lesson.is_free_preview;
+
+                                                        const content = (
+                                                            <>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className={`p-2 rounded-full ${lesson.content_type === "video" ? "bg-blue-100 text-blue-600" : "bg-emerald-100 text-emerald-600"}`}>
+                                                                        {lesson.content_type === "video" ? (
+                                                                            <PlayCircle className="h-4 w-4" />
+                                                                        ) : (
+                                                                            <FileText className="h-4 w-4" />
+                                                                        )}
+                                                                    </div>
+                                                                    <span className={`font-medium text-sm transition-colors ${isAccessible ? "group-hover:text-primary" : ""}`}>{lesson.title}</span>
+                                                                </div>
+                                                                <div>
+                                                                    {lesson.is_free_preview ? (
+                                                                        <Badge variant="secondary" className="flex items-center gap-1 text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200">
+                                                                            <Unlock className="h-3 w-3" /> Preview
+                                                                        </Badge>
                                                                     ) : (
-                                                                        <FileText className="h-4 w-4" />
+                                                                        <Lock className="h-4 w-4 text-muted-foreground/50" />
                                                                     )}
                                                                 </div>
-                                                                <span className="font-medium text-sm group-hover:text-primary transition-colors">{lesson.title}</span>
+                                                            </>
+                                                        );
+
+                                                        if (isAccessible) {
+                                                            return (
+                                                                <Link
+                                                                    key={lesson.id}
+                                                                    href={`/learn/${courseId}?lessonId=${lesson.id}`}
+                                                                    className="flex items-center justify-between p-3 rounded-md border border-transparent transition-all group w-full hover:bg-background hover:border-border cursor-pointer"
+                                                                >
+                                                                    {content}
+                                                                </Link>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div
+                                                                key={lesson.id}
+                                                                className="flex items-center justify-between p-3 rounded-md border border-transparent transition-all group w-full opacity-75 cursor-default"
+                                                            >
+                                                                {content}
                                                             </div>
-                                                            <div>
-                                                                {lesson.is_free_preview ? (
-                                                                    <Badge variant="secondary" className="flex items-center gap-1 text-xs bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200">
-                                                                        <Unlock className="h-3 w-3" /> Preview
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <Lock className="h-4 w-4 text-muted-foreground/50" />
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </AccordionContent>
                                         </AccordionItem>
@@ -242,11 +280,11 @@ export default async function CourseLandingPage({
                     <div className="flex items-center justify-between gap-4">
                         <div>
                             <div className="text-2xl font-bold text-[#1F2A6B]">
-                                {course.price === 0 ? "Free" : `$${course.price}`}
+                                {course.price === 0 ? "Free" : `₹ ${course.price}`}
                             </div>
                             {course.price > 0 && (
                                 <div className="text-xs text-slate-500 line-through">
-                                    ${Math.round(course.price * 1.5)}
+                                    ₹ {Math.round(course.price * 1.5)}
                                 </div>
                             )}
                         </div>

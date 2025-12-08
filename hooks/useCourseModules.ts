@@ -16,19 +16,29 @@ export const useCourseModules = (courseId: string, initialData: ModuleWithLesson
     const { data: modules = initialData, isLoading, refetch } = useQuery({
         queryKey,
         queryFn: async () => {
+            // OPTIMIZED: Use RPC first
             const { data, error } = await supabase
-                .from("modules")
-                .select("*, lessons(*)")
-                .eq("course_id", courseId)
-                .order("module_order", { ascending: true });
+                .rpc('get_course_structure', { target_course_id: courseId });
 
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC fetch failed in useCourseModules, falling back", error);
+                const { data: fallbackData, error: fallbackError } = await supabase
+                    .from("modules")
+                    .select("*, lessons(*)")
+                    .eq("course_id", courseId)
+                    .order("module_order", { ascending: true });
 
-            // Sort lessons by order
-            return data.map((m: any) => ({
-                ...m,
-                lessons: (m.lessons || []).sort((a: any, b: any) => a.lesson_order - b.lesson_order)
-            })) as ModuleWithLessons[];
+                if (fallbackError) throw fallbackError;
+
+                // Sort lessons by order
+                return fallbackData.map((m: any) => ({
+                    ...m,
+                    lessons: (m.lessons || []).sort((a: any, b: any) => a.lesson_order - b.lesson_order)
+                })) as ModuleWithLessons[];
+            }
+
+            // RPC returns fully structured data
+            return data as ModuleWithLessons[];
         },
         initialData,
         staleTime: 1000 * 60 * 5, // 5 minutes
@@ -268,6 +278,88 @@ export const useCourseModules = (courseId: string, initialData: ModuleWithLesson
         }
     });
 
+    // --- Reorder Mutations ---
+
+    const reorderModulesMutation = useMutation({
+        mutationFn: async (orderedModules: { id: string; module_order: number }[]) => {
+            const updates = orderedModules.map((m) =>
+                supabase.from("modules").update({ module_order: m.module_order }).eq("id", m.id)
+            );
+            await Promise.all(updates);
+        },
+        onMutate: async (orderedModules) => {
+            await queryClient.cancelQueries({ queryKey });
+            const previousModules = queryClient.getQueryData<ModuleWithLessons[]>(queryKey);
+
+            updateCache((old) => {
+                const orderMap = new Map(orderedModules.map((m) => [m.id, m.module_order]));
+                const newModules = [...old].map((m) => ({
+                    ...m,
+                    module_order: orderMap.get(m.id) ?? m.module_order,
+                }));
+                return newModules.sort((a, b) => a.module_order - b.module_order);
+            });
+
+            return { previousModules };
+        },
+        onError: (err, _, context) => {
+            if (context?.previousModules) {
+                queryClient.setQueryData(queryKey, context.previousModules);
+            }
+            toast.error("Failed to reorder modules");
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey });
+        }
+    });
+
+    const reorderLessonsMutation = useMutation({
+        mutationFn: async (orderedLessons: { id: string; lesson_order: number; module_id: string }[]) => {
+            // Ensure all lessons belong to the correct module just in case
+            const updates = orderedLessons.map((l) =>
+                supabase.from("lessons").update({ lesson_order: l.lesson_order, module_id: l.module_id }).eq("id", l.id)
+            );
+            await Promise.all(updates);
+        },
+        onMutate: async (orderedLessons) => {
+            await queryClient.cancelQueries({ queryKey });
+            const previousModules = queryClient.getQueryData<ModuleWithLessons[]>(queryKey);
+
+            updateCache((old) => {
+                return old.map((m) => {
+                    const lessonsUpdateMap = new Map(orderedLessons.filter(l => l.module_id === m.id).map(l => [l.id, l.lesson_order]));
+
+                    const newLessons = m.lessons.map(l => {
+                        const newOrder = orderedLessons.find(ol => ol.id === l.id);
+                        if (newOrder) {
+                            return { ...l, lesson_order: newOrder.lesson_order, module_id: newOrder.module_id };
+                        }
+                        return l;
+                    });
+
+                    if (lessonsUpdateMap.size > 0) {
+                        return {
+                            ...m,
+                            lessons: newLessons.sort((a, b) => a.lesson_order - b.lesson_order)
+                        };
+                    }
+                    return m;
+                });
+            });
+
+            return { previousModules };
+        },
+        onError: (err, _, context) => {
+            if (context?.previousModules) {
+                queryClient.setQueryData(queryKey, context.previousModules);
+            }
+            toast.error("Failed to reorder lessons");
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey });
+        }
+    });
+
     return {
         modules,
         isLoading,
@@ -276,9 +368,11 @@ export const useCourseModules = (courseId: string, initialData: ModuleWithLesson
         isAddingModule: addModuleMutation.isPending,
         updateModule: updateModuleMutation.mutateAsync,
         deleteModule: deleteModuleMutation.mutateAsync,
-        addLesson: addLessonMutation.mutateAsync, // Async because usage often awaits result for UI changes
+        addLesson: addLessonMutation.mutateAsync,
         isAddingLesson: addLessonMutation.isPending,
         updateLesson: updateLessonMutation.mutateAsync,
+        reorderModules: reorderModulesMutation.mutateAsync,
+        reorderLessons: reorderLessonsMutation.mutateAsync,
         deleteLesson: deleteLessonMutation.mutateAsync,
     };
 };

@@ -27,6 +27,7 @@ export function AddContentModal({ moduleId, lessonCount, onAdd, onSuccess }: Add
     const [availableExams, setAvailableExams] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingExams, setIsLoadingExams] = useState(false);
+    const [isFreePreview, setIsFreePreview] = useState(false);
     // Live class fields
     const [meetingUrl, setMeetingUrl] = useState("");
     const [meetingDate, setMeetingDate] = useState("");
@@ -111,7 +112,7 @@ export function AddContentModal({ moduleId, lessonCount, onAdd, onSuccess }: Add
                 content_type: selectedType === "live" ? "video" : selectedType,
                 content_url: contentUrl,
                 lesson_order: lessonCount + 1,
-                is_free_preview: false
+                is_free_preview: isFreePreview
             };
 
             // Add live class specific fields
@@ -173,6 +174,7 @@ export function AddContentModal({ moduleId, lessonCount, onAdd, onSuccess }: Add
         setMeetingUrl("");
         setMeetingDate("");
         setMeetingPlatform("google_meet");
+        setIsFreePreview(false);
     };
 
     return (
@@ -306,6 +308,17 @@ export function AddContentModal({ moduleId, lessonCount, onAdd, onSuccess }: Add
                             </div>
                         )}
 
+                        <div className="flex items-center space-x-2 pt-2">
+                            <input
+                                type="checkbox"
+                                id="is-free"
+                                checked={isFreePreview}
+                                onChange={(e) => setIsFreePreview(e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <Label htmlFor="is-free" className="dark:text-slate-300 cursor-pointer">Free Preview (Available without purchase)</Label>
+                        </div>
+
                         <div className="flex justify-end gap-2 mt-4">
                             <Button type="button" variant="ghost" onClick={() => setStep("select")} className="dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800">Back</Button>
                             <Button type="submit" disabled={isLoading}>
@@ -315,6 +328,6 @@ export function AddContentModal({ moduleId, lessonCount, onAdd, onSuccess }: Add
                     </form>
                 )}
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }
