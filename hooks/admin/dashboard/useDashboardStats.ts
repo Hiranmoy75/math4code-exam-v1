@@ -34,8 +34,6 @@ export const useDashboardStats = (userId: string) => {
 
       return data as DashboardStats;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    refetchOnWindowFocus: false,
-    retry: 1
+    enabled: !!userId,
   });
 };

@@ -28,16 +28,16 @@ import { Skeleton } from "@/components/ui/skeleton"
 const supabase = createClient()
 
 // 🔹 Fetch Function
-async function fetchResults() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return []
+import { useUser } from "@/hooks/useUser"
+
+// 🔹 Fetch Function
+async function fetchResults(userId: string | undefined) {
+  if (!userId) return []
 
   const { data, error } = await supabase
     .from("results")
     .select("*, exam_attempts(exam_id, exams(title))")
-    .eq("exam_attempts.student_id", user.id)
+    .eq("exam_attempts.student_id", userId)
     .order("created_at", { ascending: false })
 
   if (error) throw error
@@ -45,15 +45,20 @@ async function fetchResults() {
 }
 
 export default function ResultsPage() {
+  const { user, loading: isUserLoading } = useUser()
+
   const {
     data: results,
-    isLoading,
+    isLoading: isResultsLoading,
     isFetching,
   } = useQuery({
-    queryKey: ["student-results"],
-    queryFn: fetchResults,
-    staleTime: 1000 * 60 * 5, // 5 min cache
+    queryKey: ["student-results", user?.id],
+    queryFn: () => fetchResults(user?.id),
+    enabled: !!user?.id,
   })
+
+  const isLoading = isResultsLoading || isUserLoading
+
 
   return (
     <div className="p-6 md:p-10 bg-gradient-to-br from-indigo-50 via-sky-50 to-white dark:from-slate-900 dark:via-slate-900 dark:to-black min-h-screen transition-colors duration-300">
@@ -144,13 +149,12 @@ export default function ResultsPage() {
                     {/* Percentage */}
                     <TableCell className="text-center">
                       <Badge
-                        className={`px-3 py-1 text-sm rounded-full shadow-md ${
-                          result.percentage >= 80
-                            ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
-                            : result.percentage >= 60
+                        className={`px-3 py-1 text-sm rounded-full shadow-md ${result.percentage >= 80
+                          ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+                          : result.percentage >= 60
                             ? "bg-gradient-to-r from-yellow-400 to-orange-500 text-white"
                             : "bg-gradient-to-r from-rose-500 to-pink-600 text-white"
-                        }`}
+                          }`}
                       >
                         <Percent className="w-3 h-3 mr-1" />
                         {result.percentage.toFixed(2)}%

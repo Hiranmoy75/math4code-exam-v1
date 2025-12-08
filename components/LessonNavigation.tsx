@@ -54,8 +54,8 @@ export function LessonNavigation({
     }
 
     return (
-        <div className="flex items-center justify-between mt-12 pt-8 border-t border-border">
-            <Button variant="outline" className="gap-2 h-11 px-6" disabled={!prevLessonId} asChild={!!prevLessonId}>
+        <div className="flex flex-col sm:flex-row items-center justify-between mt-12 pt-8 border-t border-border gap-4">
+            <Button variant="outline" className="gap-2 h-11 px-6 w-full sm:w-auto order-2 sm:order-1" disabled={!prevLessonId} asChild={!!prevLessonId}>
                 {prevLessonId ? (
                     <Link href={`/learn/${courseId}?lessonId=${prevLessonId}`}>
                         <ChevronLeft className="h-4 w-4" /> Previous Lesson
@@ -67,7 +67,7 @@ export function LessonNavigation({
 
             <Button
                 variant="ghost"
-                className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex"
+                className="gap-2 text-muted-foreground hover:text-foreground flex w-full sm:w-auto order-3 sm:order-2"
                 onClick={handleToggleComplete}
                 disabled={isMarkingComplete || isMarkingIncomplete}
             >
@@ -84,7 +84,7 @@ export function LessonNavigation({
                 )}
             </Button>
 
-            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-11 px-6 shadow-md shadow-emerald-500/20" disabled={!nextLessonId} asChild={!!nextLessonId}>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-11 px-6 shadow-md shadow-emerald-500/20 w-full sm:w-auto order-1 sm:order-3" disabled={!nextLessonId} asChild={!!nextLessonId}>
                 {nextLessonId ? (
                     <Link href={`/learn/${courseId}?lessonId=${nextLessonId}`}>
                         Next Lesson <ChevronRight className="h-4 w-4" />

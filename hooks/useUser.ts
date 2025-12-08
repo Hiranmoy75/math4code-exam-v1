@@ -9,39 +9,60 @@ export function useUser() {
     const supabase = createClient();
 
     useEffect(() => {
+        let mounted = true;
+
         const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
+            try {
+                // Get session from local storage first (faster)
+                const { data: { session } } = await supabase.auth.getSession();
 
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single();
-                setProfile(profile);
+                if (mounted) {
+                    if (session?.user) {
+                        setUser(session.user);
+
+                        // Fetch profile in background to unblock UI
+                        fetchProfile(session.user.id);
+                    } else {
+                        // Fallback to getUser if no session (only if session is null)
+                        const { data: { user } } = await supabase.auth.getUser();
+                        if (mounted) setUser(user);
+                        if (user) fetchProfile(user.id);
+                    }
+                }
+            } catch (error) {
+                console.error("Error getting user:", error);
+            } finally {
+                if (mounted) setLoading(false);
             }
-
-            setLoading(false);
         };
+
+        const fetchProfile = async (userId: string) => {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+            if (mounted) setProfile(profile);
+        }
 
         getUser();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', session.user.id)
-                    .single();
-                setProfile(profile);
-            } else {
-                setProfile(null);
+            if (mounted) {
+                setUser(session?.user ?? null);
+                if (session?.user) {
+                    fetchProfile(session.user.id);
+                } else {
+                    setProfile(null);
+                }
+                setLoading(false);
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
 
     return { user, profile, loading };

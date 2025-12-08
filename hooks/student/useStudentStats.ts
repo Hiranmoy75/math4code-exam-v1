@@ -42,8 +42,6 @@ export function useStudentStats(userId: string | undefined) {
 
             return data as unknown as StudentStats;
         },
-        enabled: !!userId,
-        staleTime: 1000 * 60 * 5, // 5 minutes
-        retry: 1
+        enabled: !!userId
     });
 }

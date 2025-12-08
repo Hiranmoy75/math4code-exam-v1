@@ -36,7 +36,6 @@ export function useAllCourses(userId: string | undefined) {
 
             return data as Course[];
         },
-        staleTime: 1000 * 60 * 5, // 5 minutes cache
-        refetchOnWindowFocus: false,
+        enabled: userId !== undefined, // Wait for auth check to complete (it can be null for public, but not undefined)
     })
 }

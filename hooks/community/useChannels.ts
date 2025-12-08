@@ -26,8 +26,6 @@ export const useChannels = (courseId: string) => {
 
             return data as ChannelWithMeta[];
         },
-        enabled: !!courseId,
-        staleTime: 1000 * 60 * 5, // Cache channel list for 5 mins
-        refetchOnWindowFocus: false
+        enabled: !!courseId
     });
 };

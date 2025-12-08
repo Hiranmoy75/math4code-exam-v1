@@ -41,6 +41,5 @@ export function useStudentCourses(userId: string | undefined) {
         },
         enabled: !!userId,
         staleTime: 0, // Keeping 0 for now as per your request for immediate updates
-        retry: 1
     })
 }
