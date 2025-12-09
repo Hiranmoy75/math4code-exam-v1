@@ -13,8 +13,6 @@ export async function OPTIONS() {
     return NextResponse.json({}, { headers: corsHeaders });
 }
 
-export const runtime = 'edge';
-
 /**
  * Get video information from Bunny.net
  * Used to check upload status and get video details

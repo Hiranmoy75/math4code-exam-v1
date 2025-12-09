@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 
 export interface DashboardStats {
   examsCount: number;
@@ -10,7 +10,7 @@ export interface DashboardStats {
 }
 
 export const useDashboardStats = (userId: string) => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   return useQuery<DashboardStats>({
     queryKey: ["admin-dashboard-stats", userId],

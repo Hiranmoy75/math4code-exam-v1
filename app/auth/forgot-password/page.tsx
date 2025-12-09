@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 
-export const runtime = 'edge';
+
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");

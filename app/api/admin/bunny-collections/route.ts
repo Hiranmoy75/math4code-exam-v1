@@ -9,7 +9,7 @@ import { getOrCreateCollection } from '@/lib/bunny';
  * Body: { courseId: string, courseTitle: string }
  * Returns: { collectionId: string, created: boolean }
  */
-export const runtime = 'edge';
+
 
 export async function POST(request: NextRequest) {
     try {

@@ -9,7 +9,6 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-export const runtime = 'edge';
 
 // Handle OPTIONS request for CORS preflight
 export async function OPTIONS(req: Request) {

@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 
 interface Props { userId: string }
 
 export default function RecentAttemptsCard({ userId }: Props) {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
   const [attempts, setAttempts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

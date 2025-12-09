@@ -3,12 +3,12 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { useQuery } from "@tanstack/react-query";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 
 interface Props { userId: string }
 
 export default function ExamCharts({ userId }: Props) {
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-charts', userId],

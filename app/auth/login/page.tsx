@@ -8,8 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, Lock, ArrowRight, AlertCircle } from "lucide-react";
 import { FaGoogle, FaGithub } from "react-icons/fa";
 
-export const runtime = 'edge';
-
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
