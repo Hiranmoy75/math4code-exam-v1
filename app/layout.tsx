@@ -11,7 +11,7 @@ import { Toaster } from "@/components/ui/toaster"
 import AIMentor from "@/components/landing/AIMentor"
 import { RewardInitializerWrapper } from "@/components/RewardInitializerWrapper"
 
-export const runtime = 'edge';
+export const dynamic = 'force-static';
 
 const geist = Geist({
   subsets: ["latin"],
