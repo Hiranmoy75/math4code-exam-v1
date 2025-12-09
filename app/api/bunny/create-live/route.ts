@@ -13,6 +13,8 @@ export async function OPTIONS() {
     return NextResponse.json({}, { headers: corsHeaders });
 }
 
+export const runtime = 'edge';
+
 /**
  * Create a new live stream session in Bunny.net
  * Returns RTMP URL and Stream Key for OBS/Zoom

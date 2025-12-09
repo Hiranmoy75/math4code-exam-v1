@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { validateBunnyCredentials } from '@/lib/bunny';
 
+export const runtime = 'edge';
+
 // CORS headers
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',

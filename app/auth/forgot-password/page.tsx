@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Mail, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
 
+export const runtime = 'edge';
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -22,7 +24,7 @@ export default function ForgotPasswordPage() {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
       });
-      
+
       if (error) throw error;
       setIsSubmitted(true);
     } catch (error: any) {
@@ -42,7 +44,7 @@ export default function ForgotPasswordPage() {
       <div className="mb-8 text-center">
         <Link href="/" className="inline-block">
           <div className="flex items-center justify-center gap-3">
-             <div className="w-auto px-2 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
+            <div className="w-auto px-2 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
               <span className="text-xl">Σ✨{'}'}</span>
             </div>
             <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-violet-400">
@@ -109,8 +111,8 @@ export default function ForgotPasswordPage() {
               We've sent a password reset link to <span className="text-indigo-400">{email}</span>.
             </p>
             <button
-               onClick={() => setIsSubmitted(false)}
-               className="text-sm text-slate-500 hover:text-white transition-colors"
+              onClick={() => setIsSubmitted(false)}
+              className="text-sm text-slate-500 hover:text-white transition-colors"
             >
               Did not receive email? Try again
             </button>
@@ -118,8 +120,8 @@ export default function ForgotPasswordPage() {
         )}
 
         <div className="mt-8 pt-6 border-t border-slate-700/50 flex justify-center">
-          <Link 
-            href="/auth/login" 
+          <Link
+            href="/auth/login"
             className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Login

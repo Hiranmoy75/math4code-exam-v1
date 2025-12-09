@@ -219,7 +219,7 @@ BEGIN
     FROM section_stats;
 
     -- Update Exam Attempt Status if not done (redundant safety)
-    UPDATE public.exam_attempts SET status = 'graded' WHERE id = p_attempt_id;
+    UPDATE public.exam_attempts SET status = 'submitted' WHERE id = p_attempt_id;
 
     -- Get Final Result Data to Return
     SELECT jsonb_build_object(

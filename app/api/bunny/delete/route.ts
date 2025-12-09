@@ -9,6 +9,8 @@ import { deleteBunnyVideo } from '@/lib/bunny';
  * Body: { videoId: string }
  * Returns: { success: boolean }
  */
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient();

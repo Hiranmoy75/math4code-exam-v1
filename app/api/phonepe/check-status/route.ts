@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"; // For fallback
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPaymentStatus } from "@/lib/phonepe";
 
+
+export const runtime = 'edge';
 // CORS headers for mobile app
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',

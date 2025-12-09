@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createPayment } from "@/lib/phonepe";
 
+
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
     try {
         const { seriesId, amount, userId } = await request.json();

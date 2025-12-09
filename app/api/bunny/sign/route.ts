@@ -13,6 +13,8 @@ export async function OPTIONS() {
     return NextResponse.json({}, { headers: corsHeaders });
 }
 
+export const runtime = 'edge';
+
 /**
  * Generate upload signature for Bunny.net direct upload
  * This allows the browser to upload directly to Bunny.net using TUS protocol
