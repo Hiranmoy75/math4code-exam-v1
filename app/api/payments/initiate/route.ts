@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createPayment } from "@/lib/phonepe";
 
 
-export const runtime = 'edge';
 
 export async function POST(request: NextRequest) {
     try {
